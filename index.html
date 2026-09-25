@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1838" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="空島" />
+  <meta name="description" content="空島 SORASHIMA - ブラウザで遊べる 3D アクション RPG" />
+  <title>空島 SORASHIMA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <!-- ロード画面 -->
+  <div id="loading-screen">
+    <div class="loading-center">
+      <svg class="logo-crystal" viewBox="0 0 100 140" aria-hidden="true">
+        <defs>
+          <linearGradient id="cg1" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#d9fbff" /><stop offset="1" stop-color="#5fd0ea" />
+          </linearGradient>
+          <linearGradient id="cg2" x1="1" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#8fe8ff" /><stop offset="1" stop-color="#2a8fbf" />
+          </linearGradient>
+        </defs>
+        <polygon points="50,4 86,52 50,136 14,52" fill="url(#cg2)" />
+        <polygon points="50,4 50,136 14,52" fill="url(#cg1)" />
+        <polygon points="50,4 86,52 50,60 14,52" fill="#ffffff" opacity=".35" />
+      </svg>
+      <h1 class="loading-title">空島<small>SORASHIMA</small></h1>
+      <div class="progress"><div id="progress-fill"></div></div>
+      <p id="loading-status">起動中...</p>
+    </div>
+    <p id="loading-tip" class="loading-tip"></p>
+  </div>
+
+  <!-- メニュー画面 -->
+  <div id="menu" class="hidden">
+    <div class="menu-panel">
+      <h1 class="menu-title">空島<small>SORASHIMA</small></h1>
+      <p class="menu-sub">海に浮かぶ島から、冒険がはじまる。</p>
+      <nav class="menu-buttons">
+        <button id="btn-play" class="btn btn-primary">▶ プレイ</button>
+        <button id="btn-avatar" class="btn">キャラクター</button>
+        <button id="btn-settings" class="btn">設定</button>
+        <button id="btn-fullscreen" class="btn hidden">全画面で遊ぶ</button>
+      </nav>
+      <p id="rotate-tip" class="rotate-tip hidden">📱 スマホは横向きがおすすめです</p>
+      <p class="menu-version">v0.6 — 血の剣</p>
+    </div>
+
+    <div id="settings-panel" class="popup hidden">
+      <h2>設定</h2>
+      <label class="toggle"><input type="checkbox" id="opt-shadows" checked /> 影を表示</label>
+      <label class="toggle"><input type="checkbox" id="opt-orbit" checked /> カメラを動かす</label>
+      <label class="toggle"><input type="checkbox" id="opt-stepped" checked /> キャラの動きをコマ落とし風にする</label>
+      <button class="btn btn-small" data-close>閉じる</button>
+    </div>
+  </div>
+
+  <!-- 敵の名前・HP バーとダメージ表示（3D の位置に合わせて配置） -->
+  <div id="label-layer" class="world-layer"></div>
+  <div id="popup-layer" class="world-layer"></div>
+  <div id="hurt-vignette"></div>
+  <div id="blood-vignette"></div>
+  <div id="blood-flash"></div>
+
+  <!-- ゲーム中の HUD -->
+  <div id="ingame" class="hidden">
+    <button id="btn-back" class="btn btn-small">≡ メニュー</button>
+
+    <div class="status">
+      <div class="status-top">
+        <span class="lv">Lv <b id="lv">1</b></span>
+        <span class="hp-text"><b id="hp-now">100</b> / <span id="hp-max">100</span></span>
+      </div>
+      <div class="bar hp-bar"><div id="hp-fill"></div></div>
+      <div class="bar exp-bar"><div id="exp-fill"></div></div>
+    </div>
+
+    <div class="map-wrap">
+      <canvas id="minimap" title="M キーで拡大"></canvas>
+      <p id="coords" class="coords"></p>
+    </div>
+
+    <div id="help" class="help">
+      <h3>操作方法 <span class="help-hint">H で表示切替</span></h3>
+      <dl>
+        <dt>W A S D / 矢印</dt><dd>移動</dd>
+        <dt>スペース</dt><dd>ジャンプ</dd>
+        <dt>クリック / F</dt><dd>攻撃・アイテムを使う</dd>
+        <dt>1〜8</dt><dd>持ち物を切り替え</dd>
+        <dt>Q / E / R</dt><dd>魔剣の技</dd>
+        <dt>ドラッグ</dt><dd>カメラを回す</dd>
+        <dt>ホイール</dt><dd>ズーム</dd>
+        <dt>M</dt><dd>マップを拡大</dd>
+        <dt>B</dt><dd>祭壇に戻る</dd>
+        <dt>Esc</dt><dd>メニューへ</dd>
+      </dl>
+    </div>
+
+    <div id="joystick" class="joystick"><div class="knob"></div></div>
+    <button id="btn-jump" class="jump-btn" aria-label="ジャンプ">▲</button>
+    <button id="btn-attack" class="attack-btn" aria-label="攻撃">⚔</button>
+    <div id="skill-btns" class="skill-btns hidden">
+      <button class="skill-btn" aria-label="技 Q">Q</button>
+      <button class="skill-btn" aria-label="技 E">E</button>
+      <button class="skill-btn" aria-label="技 R">R</button>
+    </div>
+
+    <div id="area-banner" class="area-banner hidden"></div>
+
+    <div id="combo" class="combo hidden"></div>
+
+    <!-- アイテム欄とスキル -->
+    <div class="hotbar-wrap">
+      <div id="held-name" class="held-name hidden"></div>
+      <div class="hotbar-row">
+        <div id="hotbar" class="hotbar"></div>
+        <div id="skills" class="skills hidden"></div>
+      </div>
+    </div>
+    <div id="buff" class="buff hidden"></div>
+    <div id="skill-name" class="skill-name hidden"></div>
+
+    <div id="faint" class="faint hidden">
+      <p>たおれてしまった…</p>
+      <small>星の祭壇で目を覚まします</small>
+    </div>
+  </div>
+
+  <div id="toast-msg" class="toast floating hidden"></div>
+
+  <!-- js/ 以下のソースを esbuild で1ファイルにまとめたもの（npm run build で生成）。
+       モジュールではない通常のスクリプトなので、index.html をダブルクリックで開いても動く -->
+  <script src="build/game.js" onerror="document.getElementById('loading-status').textContent = 'build/game.js が見つかりません。npm run build を実行してください'"></script>
+</body>
+</html>
