@@ -16,11 +16,17 @@ export const shadow = (m) => {
  */
 export function makePlacer(group, colliders) {
   return {
+    /** 箱。mat が null なら当たり判定だけ */
     box(w, h, d, x, y, z, mat, mapColor, kind = 'part') {
+      colliders.push({
+        box: new THREE.Box3(new THREE.Vector3(x - w / 2, y, z - d / 2), new THREE.Vector3(x + w / 2, y + h, z + d / 2)),
+        color: mapColor,
+        kind,
+      });
+      if (!mat) return null;
       const m = shadow(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat));
       m.position.set(x, y + h / 2, z);
       group.add(m);
-      colliders.push({ box: new THREE.Box3().setFromObject(m), color: mapColor, kind });
       return m;
     },
     /** 円柱。mat が null なら当たり判定だけ */

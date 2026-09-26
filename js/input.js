@@ -133,6 +133,10 @@ export function createInput(canvas, { joystickEl, jumpBtnEl, attackBtnEl, skillB
     jump() {
       return enabled && (keys.has('Space') || touchJump);
     },
+    /** 走る：Shift を押している、またはスティックを端まで倒している */
+    run() {
+      return enabled && (has('ShiftLeft', 'ShiftRight') || Math.hypot(stick.x, stick.y) > 0.92);
+    },
     /** 攻撃の入力があったか（読むと消える） */
     consumeAttack() {
       const a = attackQueued;

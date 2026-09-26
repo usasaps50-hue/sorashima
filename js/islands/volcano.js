@@ -42,8 +42,8 @@ export const volcanoIsland = {
   name: '焔の火山地帯',
   cx: CX,
   cz: CZ,
-  edge: makeEdge(345, [18, 2.6, 18, 1.9, 9, 0.2]),
-  maxR: 425,
+  edge: makeEdge(420, [20, 2.6, 18, 1.9, 10, 0.2]),
+  maxR: 480,
   places: PLACES,
   paths: PATHS,
   sanctuaries: [],
@@ -79,16 +79,16 @@ export const volcanoIsland = {
   },
 
   nature: {
-    trees: { style: 'dead', count: 180, trunkColor: 0x3a3030, maxH: 30, maxSlope: 0.5 },
-    rocks: 250,
+    trees: { style: 'dead', count: 250, trunkColor: 0x3a3030, maxH: 30, maxSlope: 0.5 },
+    rocks: 350,
     rockColor: 0x4a4550,
-    grass: { count: 1500, color: 0x8a7a50 },
+    grass: { count: 2100, color: 0x8a7a50 },
     avoid: Object.values(PLACES).map((p) => [p.x, p.z, p.r + 4]),
   },
 
   enemies: {
-    kumodama: { name: 'ヒダマ', tint: 0xd9644a, mult: 3.5, count: 28 },
-    ishimori: { name: 'ヨウガンモリ', tint: 0x5a4a48, mult: 3.5, count: 10 },
+    kumodama: { name: 'ヒダマ', tint: 0xd9644a, mult: 3.5, count: 34 },
+    ishimori: { name: 'ヨウガンモリ', tint: 0x5a4a48, mult: 3.5, count: 12 },
   },
 
   decorate(colliders, ground, rand) {

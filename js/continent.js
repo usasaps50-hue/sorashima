@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { fbm, smoothstep, lerp, SEA_FLOOR, distToPaths } from './terrain.js';
+import { noise, smoothstep, lerp, SEA_FLOOR, distToPaths } from './terrain.js';
 
 // 変わり目のやわらかさ（m）。大きいほど、となりの地方と広く混ざり合う
 const BLEND = 40;
@@ -30,9 +30,17 @@ export function makeContinent(regions) {
     for (let i = 0; i < n; i++) {
       const r = regions[i];
       const dx = x - r.cx, dz = z - r.cz;
-      inside[i] = r.edge(Math.atan2(dz, dx)) - Math.hypot(dx, dz)
-        + (fbm(x / 110 + i * 17.3, z / 110 - i * 9.1) - 0.5) * WOBBLE;
+      const d = Math.hypot(dx, dz);
+      // 遠い地方は、重みがほぼ 0 なので計算を省く
+      if (d > 760) { inside[i] = -1e9; continue; }
+      inside[i] = r.edge(Math.atan2(dz, dx)) - d + (noise(x / 110 + i * 17.3, z / 110 - i * 9.1) - 0.5) * WOBBLE;
       if (inside[i] > max) max = inside[i];
+    }
+    if (max === -Infinity) {
+      // どの地方からも遠い沖合
+      w.fill(0);
+      w[0] = 1;
+      return -1e9;
     }
     let sum = 0;
     for (let i = 0; i < n; i++) {

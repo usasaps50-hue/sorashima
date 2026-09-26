@@ -43,8 +43,8 @@ export const desertIsland = {
   name: '陽炎の砂漠',
   cx: CX,
   cz: CZ,
-  edge: makeEdge(350, [22, 2.1, 18, 0.8, 9, 1.5]),
-  maxR: 435,
+  edge: makeEdge(420, [24, 2.1, 18, 0.8, 10, 1.5]),
+  maxR: 480,
   places: PLACES,
   paths: PATHS,
   sanctuaries: [],
@@ -79,10 +79,10 @@ export const desertIsland = {
   },
 
   nature: {
-    trees: { style: 'cactus', count: 250, leafColors: [0x5f9f55], minH: 2.4, maxSlope: 0.4 },
-    rocks: 150,
+    trees: { style: 'cactus', count: 350, leafColors: [0x5f9f55], minH: 2.4, maxSlope: 0.4 },
+    rocks: 210,
     rockColor: 0xc98a64,
-    grass: { count: 3000, color: 0xc9b36a },
+    grass: { count: 4200, color: 0xc9b36a },
     avoid: [
       ...Object.values(PLACES).map((p) => [p.x, p.z, p.r + 6]),
       ...MESAS.map(([x, z, r]) => [x, z, r + 6]),
@@ -90,8 +90,8 @@ export const desertIsland = {
   },
 
   enemies: {
-    kumodama: { name: 'スナダマ', tint: 0xc9a46b, mult: 2.2, count: 28 },
-    ishimori: { name: 'スナモリ', tint: 0xb07a55, mult: 2.2, count: 9 },
+    kumodama: { name: 'スナダマ', tint: 0xc9a46b, mult: 2.2, count: 34 },
+    ishimori: { name: 'スナモリ', tint: 0xb07a55, mult: 2.2, count: 11 },
   },
 
   decorate(colliders, ground, rand) {

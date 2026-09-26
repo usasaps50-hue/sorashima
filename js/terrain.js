@@ -5,8 +5,8 @@ import * as THREE from 'three';
 
 export const SEA_LEVEL = 0;
 export const SEA_FLOOR = -9; // 島と島の間の海の底
-export const WORLD_HALF = 1080; // 世界の広さ（-1080〜1080）
-const CELL = 3; // 島の地形の 1 マス（m）
+export const WORLD_HALF = 1340; // 世界の広さ（-1340〜1340）
+const CELL = 4; // 地形の 1 マス（m）
 const CHUNK = 64; // 地形メッシュを区切る大きさ（マス数）。画面に映る区画だけ描かれる
 
 // ---------- 計算の道具 ----------
@@ -34,7 +34,7 @@ function hash(x, z) {
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
 }
-function noise(x, z) {
+export function noise(x, z) {
   const xi = Math.floor(x), zi = Math.floor(z);
   const xf = x - xi, zf = z - zi;
   const u = xf * xf * (3 - 2 * xf), v = zf * zf * (3 - 2 * zf);
@@ -58,9 +58,42 @@ export function distToPolyline(x, z, pts) {
   }
   return d;
 }
+/**
+ * 道（折れ線の集まり）までの距離。道の線分を 32m 四方のマスに振り分けておき、
+ * 近くのマスの線分だけを調べる（同じ paths なら振り分けは 1 回だけ）。
+ * 近くに道が無ければ、大きな値（PATH_FAR）を返す。
+ */
+const PATH_CELL = 32;
+const PATH_FAR = 1e9;
+const pathGrids = new WeakMap();
+function pathGrid(paths) {
+  let grid = pathGrids.get(paths);
+  if (grid) return grid;
+  grid = new Map();
+  for (const pts of paths) {
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [ax, az] = pts[i], [bx, bz] = pts[i + 1];
+      const seg = [ax, az, bx, bz];
+      // 線分のまわり 1 マス分も含めて登録する（マスの境目でも近い線分を見つけられるように）
+      const x0 = Math.floor(Math.min(ax, bx) / PATH_CELL) - 1, x1 = Math.floor(Math.max(ax, bx) / PATH_CELL) + 1;
+      const z0 = Math.floor(Math.min(az, bz) / PATH_CELL) - 1, z1 = Math.floor(Math.max(az, bz) / PATH_CELL) + 1;
+      for (let ix = x0; ix <= x1; ix++) {
+        for (let iz = z0; iz <= z1; iz++) {
+          const k = ix * 100000 + iz;
+          if (!grid.has(k)) grid.set(k, []);
+          grid.get(k).push(seg);
+        }
+      }
+    }
+  }
+  pathGrids.set(paths, grid);
+  return grid;
+}
 export const distToPaths = (x, z, paths) => {
-  let d = Infinity;
-  for (const p of paths) d = Math.min(d, distToPolyline(x, z, p));
+  const list = pathGrid(paths).get(Math.floor(x / PATH_CELL) * 100000 + Math.floor(z / PATH_CELL));
+  if (!list) return PATH_FAR;
+  let d = PATH_FAR;
+  for (const [ax, az, bx, bz] of list) d = Math.min(d, distToSegment(x, z, ax, az, bx, bz));
   return d;
 };
 
@@ -130,8 +163,9 @@ export function buildTerrain(islands) {
   const col = new THREE.Color();
   const material = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 });
   for (const b of built) {
-    // 格子の各点の色を先に求めておく
+    // 格子の各点の色を先に求めておく（地図の絵にも使い回す）
     const colors = new Float32Array(b.N * b.N * 3);
+    b.colors = colors;
     for (let iz = 0; iz < b.N; iz++) {
       for (let ix = 0; ix < b.N; ix++) {
         const x = b.x0 + ix * CELL, z = b.z0 + iz * CELL;
@@ -197,13 +231,24 @@ export function buildTerrain(islands) {
   heightTex.minFilter = THREE.LinearFilter;
   heightTex.needsUpdate = true;
 
-  return { group, heightTex, sample, slopeAt, islandAt };
+  /** 地面の色（格子の色から取る。地図の絵を作る時に使う） */
+  function colorAt(x, z, out) {
+    for (const b of built) {
+      const ix = Math.round((x - b.x0) / CELL), iz = Math.round((z - b.z0) / CELL);
+      if (ix < 0 || iz < 0 || ix > b.segs || iz > b.segs) continue;
+      const i = (iz * b.N + ix) * 3;
+      return out.setRGB(b.colors[i], b.colors[i + 1], b.colors[i + 2]);
+    }
+    return out.setRGB(0, 0, 0);
+  }
+
+  return { group, heightTex, sample, slopeAt, islandAt, colorAt };
 }
 
 export const MAP_PX = 5; // ミニマップの絵の 1px が何 m か
 
-/** ミニマップ用の、上から見た世界の絵（1px = MAP_PX m） */
-export function buildMapImage(islands, sample, slopeAt, islandAt) {
+/** ミニマップ用の、上から見た世界の絵（1px = MAP_PX m）。陸の色は地形の色 colorAt から取る */
+export function buildMapImage(colorAt, sample) {
   const size = Math.round((WORLD_HALF * 2) / MAP_PX);
   const c = document.createElement('canvas');
   c.width = c.height = size;
@@ -216,10 +261,7 @@ export function buildMapImage(islands, sample, slopeAt, islandAt) {
       const x = px * MAP_PX - WORLD_HALF + MAP_PX / 2, z = py * MAP_PX - WORLD_HALF + MAP_PX / 2;
       const h = sample(x, z);
       if (h < SEA_LEVEL) col.copy(shallow).lerp(deep, smoothstep(0, 6, -h));
-      else {
-        const isl = islandAt(x, z) || islands[0];
-        isl.color(x, z, h, slopeAt(x, z), col).offsetHSL(0, 0, smoothstep(4, 30, h) * 0.08);
-      }
+      else colorAt(x, z, col).offsetHSL(0, 0, smoothstep(4, 30, h) * 0.08);
       const i = (py * size + px) * 4;
       col.convertLinearToSRGB();
       img.data[i] = col.r * 255; img.data[i + 1] = col.g * 255; img.data[i + 2] = col.b * 255; img.data[i + 3] = 255;

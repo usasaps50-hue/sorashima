@@ -257,6 +257,10 @@ html, body {
 #hp-fill { width: 100%; background: linear-gradient(90deg, #5fd38a, #2bb5a0); }
 #hp-fill.low { background: linear-gradient(90deg, #ff6b5a, #e0475a); }
 .exp-bar { height: 5px; margin-top: 5px; }
+.stamina-bar { height: 6px; margin-top: 5px; transition: opacity .4s; }
+.stamina-bar.full { opacity: .45; }
+#stamina-fill { width: 100%; background: linear-gradient(90deg, #f4e06b, #9fd46b); transition: width .1s linear; }
+#stamina-fill.tired { background: linear-gradient(90deg, #ff9a5a, #e0475a); }
 #exp-fill { width: 0%; background: var(--gold); }
 
 .world-layer { position: fixed; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }

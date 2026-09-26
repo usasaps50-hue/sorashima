@@ -37,8 +37,8 @@ export const forestIsland = {
   name: '深緑の森',
   cx: CX,
   cz: CZ,
-  edge: makeEdge(340, [24, 1.2, 15, 0.3, 9, 2.4]),
-  maxR: 425,
+  edge: makeEdge(420, [26, 1.2, 16, 0.3, 10, 2.4]),
+  maxR: 480,
   places: PLACES,
   paths: PATHS,
   sanctuaries: [],
@@ -68,18 +68,18 @@ export const forestIsland = {
   },
 
   nature: {
-    trees: { style: 'round', count: 900, leafColors: [0x3f7a3c, 0x2f6b3a, 0x4f8f45, 0x5a9a50], trunkColor: 0x6b4630 },
+    trees: { style: 'round', count: 1250, leafColors: [0x3f7a3c, 0x2f6b3a, 0x4f8f45, 0x5a9a50], trunkColor: 0x6b4630 },
     palms: 30,
-    rocks: 90,
+    rocks: 130,
     rockColor: 0x7f7f72,
-    grass: { count: 7000, color: 0x4f8f3f },
-    flowers: { count: 1800, colors: [0xcfe8ff, 0xffffff, 0x9fd0ff] },
+    grass: { count: 9500, color: 0x4f8f3f },
+    flowers: { count: 2500, colors: [0xcfe8ff, 0xffffff, 0x9fd0ff] },
     avoid: Object.values(PLACES).map((p) => [p.x, p.z, p.r + 4]),
   },
 
   enemies: {
-    kumodama: { name: 'モリダマ', tint: 0x4f8f5a, mult: 1.6, count: 28 },
-    ishimori: { name: 'コケイワ', tint: 0x6f7f5a, mult: 1.6, count: 9 },
+    kumodama: { name: 'モリダマ', tint: 0x4f8f5a, mult: 1.6, count: 34 },
+    ishimori: { name: 'コケイワ', tint: 0x6f7f5a, mult: 1.6, count: 11 },
   },
 
   decorate(colliders, ground, rand) {

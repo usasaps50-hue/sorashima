@@ -473,7 +473,7 @@ export function buildWorld(scene, renderer, options = {}) {
   const bridges = buildBridges(BRIDGES, colliders, ground);
   scene.add(bridges.group);
 
-  const mapImage = buildMapImage([continent], ground, terrain.slopeAt, () => continent);
+  const mapImage = buildMapImage(terrain.colorAt, ground);
   const collidersNear = buildColliderGrid(colliders);
   const spawnPoint = new THREE.Vector3(PLACES.altar.x, PLACES.altar.h + 0.8, PLACES.altar.z);
   let t = 0;

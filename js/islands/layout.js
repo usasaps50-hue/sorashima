@@ -4,7 +4,10 @@
 export const S = Math.sqrt(10);
 
 // 中央の地方の中心から、まわりの地方の中心までの距離（重なり合って、ひとつの大陸になる）
-export const D = 600;
+export const D = 720;
+
+// 斜めの地方（北東・南東・南西・北西）の中心の、x と z の距離
+export const DIAG = 620;
 
 // 地方どうしをつなぐ街道の線（東西の道は z = この値、南北の道は x = この値）
 export const BRIDGE_AT = { east: 20, west: -10, south: -30, north: -40 };

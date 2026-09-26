@@ -49,13 +49,15 @@ export function buildBridges(specs, colliders, ground) {
 
     // 海の真ん中から両側へ陸を探す
     let a = spec.mid, b = spec.mid;
-    for (let i = 0; i < 400 && g(a) < LAND; i++) a -= 1;
-    for (let i = 0; i < 400 && g(b) < LAND; i++) b += 1;
+    // land: 橋のはしにする高さ（谷にかける吊り橋では、崖の上の高さを指定する）
+    const land = spec.land ?? LAND;
+    for (let i = 0; i < 400 && g(a) < land; i++) a -= 1;
+    for (let i = 0; i < 400 && g(b) < land; i++) b += 1;
     a -= 2; b += 2;
     const L = b - a;
     const W = spec.small ? 3.4 : 4.4;
     const hA = g(a) + 0.25, hB = g(b) + 0.25;
-    const arch = spec.small ? 1.2 : Math.min(7, Math.max(3, L * 0.07));
+    const arch = spec.arch ?? (spec.small ? 1.2 : Math.min(7, Math.max(3, L * 0.07)));
     const deck = (t) => {
       const s = (t - a) / L;
       return lerp(hA, hB, s) + arch * Math.sin(Math.PI * s);

@@ -265,43 +265,47 @@ export function buildVillage(colliders, ground) {
   const pierX = V.x + 12;
   let startZ = V.z + 40;
   while (startZ < V.z + 400 && ground(pierX, startZ) > 0.9) startZ += 1;
-  startZ -= 4;
-  const pierLen = 28;
-  const deckY = 1.4;
-  const plankMat = std(0xb58a5e);
-  for (let i = 0; i < pierLen / 1.2; i++) {
-    const plank = shadow(new THREE.Mesh(new THREE.BoxGeometry(4, 0.25, 1.1), plankMat));
-    plank.position.set(pierX + (Math.random() - 0.5) * 0.1, deckY - 0.12, startZ + i * 1.2 + 0.6);
-    group.add(plank);
-  }
-  for (let i = 0; i <= pierLen; i += 4) {
-    for (const s of [-1, 1]) {
-      const post = shadow(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 5, 6), std(0x7a4e36)));
-      post.position.set(pierX + s * 1.9, deckY - 2, startZ + i);
-      group.add(post);
-    }
-  }
-  colliders.push({
-    box: new THREE.Box3(new THREE.Vector3(pierX - 2, deckY - 0.5, startZ), new THREE.Vector3(pierX + 2, deckY, startZ + pierLen)),
-    color: 0xb58a5e,
-    kind: 'pier',
-  });
-
-  // 小舟
+  const hasSea = startZ < V.z + 400; // 近くに海が無ければ桟橋は作らない
   const boat = new THREE.Group();
-  const hullShape = new THREE.Shape();
-  hullShape.moveTo(-1.3, 0.8);
-  hullShape.lineTo(1.3, 0.8);
-  hullShape.lineTo(0.9, 0);
-  hullShape.lineTo(-0.9, 0);
-  hullShape.lineTo(-1.3, 0.8);
-  const hull = shadow(new THREE.Mesh(new THREE.ExtrudeGeometry(hullShape, { depth: 5, bevelEnabled: false }), std(0xd9644a)));
-  hull.position.z = -2.5;
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.15, 0.6), std(0xf4ead8));
-  seat.position.y = 0.6;
-  boat.add(hull, seat);
-  boat.position.set(pierX + 4.2, SEA_LEVEL - 0.3, startZ + pierLen - 5);
-  group.add(boat);
+  if (hasSea) {
+    startZ -= 4;
+    const pierLen = 28;
+    const deckY = 1.4;
+    const plankMat = std(0xb58a5e);
+    for (let i = 0; i < pierLen / 1.2; i++) {
+      const plank = shadow(new THREE.Mesh(new THREE.BoxGeometry(4, 0.25, 1.1), plankMat));
+      plank.position.set(pierX + (Math.random() - 0.5) * 0.1, deckY - 0.12, startZ + i * 1.2 + 0.6);
+      group.add(plank);
+    }
+    for (let i = 0; i <= pierLen; i += 4) {
+      for (const s of [-1, 1]) {
+        const post = shadow(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 5, 6), std(0x7a4e36)));
+        post.position.set(pierX + s * 1.9, deckY - 2, startZ + i);
+        group.add(post);
+      }
+    }
+    colliders.push({
+      box: new THREE.Box3(new THREE.Vector3(pierX - 2, deckY - 0.5, startZ), new THREE.Vector3(pierX + 2, deckY, startZ + pierLen)),
+      color: 0xb58a5e,
+      kind: 'pier',
+    });
+
+    // 小舟
+    const hullShape = new THREE.Shape();
+    hullShape.moveTo(-1.3, 0.8);
+    hullShape.lineTo(1.3, 0.8);
+    hullShape.lineTo(0.9, 0);
+    hullShape.lineTo(-0.9, 0);
+    hullShape.lineTo(-1.3, 0.8);
+    const hull = shadow(new THREE.Mesh(new THREE.ExtrudeGeometry(hullShape, { depth: 5, bevelEnabled: false }), std(0xd9644a)));
+    hull.position.z = -2.5;
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.15, 0.6), std(0xf4ead8));
+    seat.position.y = 0.6;
+    boat.add(hull, seat);
+    boat.position.set(pierX + 4.2, SEA_LEVEL - 0.3, startZ + pierLen - 5);
+    group.add(boat);
+
+  }
 
   return {
     group,

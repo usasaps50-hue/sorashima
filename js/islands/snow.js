@@ -41,8 +41,8 @@ export const snowIsland = {
   name: '白嶺の雪原',
   cx: CX,
   cz: CZ,
-  edge: makeEdge(345, [24, 0.4, 15, 2.8, 12, 1.1]),
-  maxR: 432,
+  edge: makeEdge(420, [26, 0.4, 16, 2.8, 12, 1.1]),
+  maxR: 480,
   places: PLACES,
   paths: PATHS,
   sanctuaries: [],
@@ -69,15 +69,15 @@ export const snowIsland = {
   },
 
   nature: {
-    trees: { style: 'pine', count: 600, leafColors: [0x2f5d4a, 0x3a6b52, 0x28503f], trunkColor: 0x5a4030, snowy: true, maxH: 55, maxSlope: 0.6 },
-    rocks: 150,
+    trees: { style: 'pine', count: 850, leafColors: [0x2f5d4a, 0x3a6b52, 0x28503f], trunkColor: 0x5a4030, snowy: true, maxH: 55, maxSlope: 0.6 },
+    rocks: 210,
     rockColor: 0x8e96a3,
     avoid: Object.values(PLACES).map((p) => [p.x, p.z, p.r + 4]),
   },
 
   enemies: {
-    kumodama: { name: 'ユキダマ', tint: 0xcfe4f5, mult: 2.8, count: 28 },
-    ishimori: { name: 'コオリモリ', tint: 0x9fb8d0, mult: 2.8, count: 9 },
+    kumodama: { name: 'ユキダマ', tint: 0xcfe4f5, mult: 2.8, count: 34 },
+    ishimori: { name: 'コオリモリ', tint: 0x9fb8d0, mult: 2.8, count: 11 },
   },
 
   decorate(colliders, ground, rand) {

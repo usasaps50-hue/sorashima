@@ -27,6 +27,7 @@ const TIPS = [
   'ヒント：数字キー 1〜8 で持ち物を切り替え。空のマスを選ぶと素手になります',
   'ヒント：魔剣サングレアを持つと、Q・E・R で 3 つの技が使えます',
   'ヒント：B キーで星の祭壇に戻れます',
+  'ヒント：Shift を押しながら移動すると走れます（スマホはスティックを端まで倒す）',
 ];
 
 // ---------- レンダラー ----------
@@ -202,7 +203,33 @@ function worldMove() {
 }
 
 // ---------- ステータスと戦闘 ----------
-const stats = { level: 1, exp: 0, hp: 100, maxHp: 100, atk: 10 };
+const stats = { level: 1, exp: 0, hp: 100, maxHp: 100, atk: 10, stamina: 100, maxStamina: 100 };
+
+// ---------- 走る・スタミナ ----------
+let exhausted = false; // スタミナ切れ（少し回復するまで走れない）
+let restTime = 0; // 走るのをやめてからの時間
+
+/** 走れるかを判定し、スタミナを増減する。走るなら true */
+function updateStamina(dt, wantRun, moving) {
+  const running = wantRun && moving && !exhausted && !player.swimming;
+  if (running) {
+    stats.stamina = Math.max(0, stats.stamina - 20 * dt);
+    restTime = 0;
+    if (stats.stamina <= 0) {
+      exhausted = true;
+      toast('息が切れた…');
+    }
+  } else {
+    restTime += dt;
+    if (restTime > 0.5) stats.stamina = Math.min(stats.maxStamina, stats.stamina + 32 * dt);
+    if (exhausted && stats.stamina >= stats.maxStamina * 0.3) exhausted = false;
+  }
+  const fill = $('stamina-fill');
+  fill.style.width = (stats.stamina / stats.maxStamina) * 100 + '%';
+  fill.classList.toggle('tired', exhausted);
+  $('stamina-bar').classList.toggle('full', stats.stamina >= stats.maxStamina);
+  return running;
+}
 const expToNext = () => stats.level * 20;
 let invuln = 0; // ダメージ後の無敵時間
 let fainted = false;
@@ -829,7 +856,9 @@ function loop() {
     if (skillKey >= 0) useSkill(skillKey);
     // 攻撃中は足を止めて、その場で振る
     const move = character.attacking || drinkTimer >= 0 || skillState ? { x: 0, z: 0 } : worldMove();
-    player.update(dt, { ...move, jump: input.jump() && !character.attacking });
+    const moving = Math.hypot(move.x, move.z) > 0.1;
+    const run = updateStamina(dt, input.run(), moving);
+    player.update(dt, { ...move, jump: input.jump() && !character.attacking, run });
     checkGoal();
     checkArea();
   } else {

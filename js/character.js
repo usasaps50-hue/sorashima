@@ -236,6 +236,7 @@ export function createCharacter(colors = DEFAULT_COLORS) {
   let walkPhase = 0;
   let walkBlend = 0;
   let airBlend = 0;
+  let runBlend = 0; // 走っている度合い
   let blinkTimer = 2 + Math.random() * 3;
   let attackTime = -1;
   let attackKind = 0;
@@ -278,7 +279,8 @@ export function createCharacter(colors = DEFAULT_COLORS) {
     t += dt;
     walkBlend = approach(walkBlend, grounded ? speed : 0, 10, dt);
     airBlend = approach(airBlend, grounded ? 0 : 1, 12, dt);
-    walkPhase += dt * 10 * Math.max(walkBlend, 0.2);
+    runBlend = approach(runBlend, state.run && grounded ? 1 : 0, 8, dt);
+    walkPhase += dt * 10 * Math.max(walkBlend, 0.2) * (1 + 0.55 * runBlend);
     const idle = (1 - walkBlend) * (1 - airBlend);
     armL.rotation.y = 0;
     armR.rotation.y = 0;
@@ -308,8 +310,8 @@ export function createCharacter(colors = DEFAULT_COLORS) {
     const swayLR = Math.sin(t * 0.8 + 0.5) * idle; // 左右
 
     // ---- 歩き ----
-    const swing = Math.sin(walkPhase) * 0.8 * walkBlend;
-    const bounce = Math.abs(Math.sin(walkPhase)) * 0.14 * walkBlend;
+    const swing = Math.sin(walkPhase) * 0.8 * walkBlend * (1 + 0.45 * runBlend);
+    const bounce = Math.abs(Math.sin(walkPhase)) * 0.14 * walkBlend * (1 + 0.6 * runBlend);
 
     armL.rotation.x = swing + swayFB * 0.06 + breathe * 0.03 * idle;
     armR.rotation.x = -swing + swayFB * 0.06 - breathe * 0.03 * idle;
@@ -342,11 +344,18 @@ export function createCharacter(colors = DEFAULT_COLORS) {
 
     scarf.position.y = 3.1 + bounce;
     scarfTail.position.y = 3.05 + bounce;
-    scarfTail.rotation.x = -0.2 - walkBlend * 0.9 - airBlend * 0.6 + Math.sin(t * 6) * 0.08 * (0.3 + walkBlend) + swayFB * 0.05;
+    // 走る時は、ひじを曲げたように腕を前寄りで大きく振る
+    if (runBlend > 0.01) {
+      armL.rotation.x -= 0.35 * runBlend;
+      armR.rotation.x -= 0.35 * runBlend;
+      armL.rotation.z -= 0.12 * runBlend;
+      armR.rotation.z += 0.12 * runBlend;
+    }
+    scarfTail.rotation.x = -0.2 - walkBlend * 0.9 - runBlend * 0.5 - airBlend * 0.6 + Math.sin(t * 6) * 0.08 * (0.3 + walkBlend) + swayFB * 0.05;
     scarfTail.rotation.z = Math.sin(t * 2.3) * 0.08 * (0.4 + walkBlend);
 
     // ---- 体全体：重心移動・前傾・腰の揺れ・方向転換の傾き ----
-    let bodyX = swayFB * 0.035 + walkBlend * 0.12; // 歩くと少し前傾
+    let bodyX = swayFB * 0.035 + walkBlend * 0.12 + runBlend * 0.18; // 歩くと少し前傾、走るともっと
     let bodyZ = swayLR * 0.025 + Math.sin(walkPhase) * 0.045 * walkBlend + turnLean;
     let scaleY = 1;
 

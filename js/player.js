@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 // 移動の数値（単位：m, 秒）。ジャンプの高さは JUMP_POWER² / (2 * GRAVITY) ≒ 6m
 const WALK_SPEED = 14;
+const RUN_MULT = 1.7; // 走る時の速さ（歩きに対する倍率）
 const JUMP_POWER = 38;
 const GRAVITY = 120;
 const STEP_HEIGHT = 1.1; // これ以下の段差は自動で登る
@@ -11,7 +12,7 @@ const FALL_LIMIT = -40; // 念のため：これより落ちたらリスポー�
 const MAX_SLOPE = 1.15; // 歩いて登れる坂の傾き（高さ/距離）。これより急な崖は登れない
 const SWIM_DEPTH = 3.0; // 泳いでいる時、足が水面からこれだけ下にある
 const SWIM_SPEED = 0.55; // 泳ぐ速さ（歩きに対する割合）
-const WORLD_LIMIT = 1060; // 沖へ出られる限界（世界の端）
+const WORLD_LIMIT = 1310; // 沖へ出られる限界（世界の端）
 const EPS = 0.001;
 
 /**
@@ -195,13 +196,14 @@ export function createPlayer(character, world) {
 
     /**
      * @param {number} dt
-     * @param {{ x: number, z: number, jump: boolean }} input  x/z はワールド座標系の移動方向（長さ 0〜1）
+     * @param {{ x: number, z: number, jump: boolean, run?: boolean }} input  x/z はワールド座標系の移動方向（長さ 0〜1）、run: 走る
      */
     update(dt, input) {
       near = world.collidersNear(pos.x, pos.z);
       const len = Math.min(1, Math.hypot(input.x, input.z));
       moveAmount = len;
-      const speed = WALK_SPEED * (swimming ? SWIM_SPEED : 1);
+      const running = !!input.run && len > 0.1 && !swimming;
+      const speed = WALK_SPEED * (swimming ? SWIM_SPEED : running ? RUN_MULT : 1);
       vel.x = input.x * speed + push.x;
       vel.z = input.z * speed + push.y;
       push.multiplyScalar(Math.exp(-dt * 5));
@@ -231,7 +233,7 @@ export function createPlayer(character, world) {
 
       if (pos.y < FALL_LIMIT) this.respawn(facing);
 
-      character.update(dt, { speed: moveAmount, grounded, swimming });
+      character.update(dt, { speed: moveAmount, grounded, swimming, run: running });
     },
   };
 }

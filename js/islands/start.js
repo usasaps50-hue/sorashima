@@ -58,6 +58,11 @@ const PATHS = [
   [[-60, -40], [-150, -20], [-300, BRIDGE_AT.west], [-480, BRIDGE_AT.west]],
   [[0, 0], [-20, 100], [BRIDGE_AT.south, 250], [BRIDGE_AT.south, 480]],
   [[0, 0], [-20, -120], [BRIDGE_AT.north, -240], [BRIDGE_AT.north, -480]],
+  // 斜めの地方へ向かう道
+  [[0, 0], [150, -140], [330, -330]], // 北東：花冠の丘陵
+  [[V.x, V.z], [270, 250], [360, 360]], // 南東：霧の湿原
+  [[0, 0], [-120, 150], [-330, 330]], // 南西：紅葉の渓谷
+  [[-130, -110], [-230, -230], [-340, -330]], // 北西：水晶の高地
 ];
 
 const C = {
@@ -156,8 +161,8 @@ export const startIsland = {
   },
 
   enemies: {
-    kumodama: { count: 26 },
-    ishimori: { count: 6 },
+    kumodama: { count: 30 },
+    ishimori: { count: 7 },
   },
 
   // 新しい名所：風車・灯台・環状列石
