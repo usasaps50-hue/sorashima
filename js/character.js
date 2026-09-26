@@ -241,7 +241,7 @@ export function createCharacter(colors = DEFAULT_COLORS) {
   let attackTime = -1;
   let attackKind = 0;
   let attackSpeed = 1; // 剣ごとの振りの速さ
-  let stance = 'fists'; // 待機の構え：'fists'（素手）/ 'sword'（旅人の剣）/ 'blood'（魔剣）/ 'item'
+  let stance = 'fists'; // 待機の構え：'fists'（素手）/ 'sword'（旅人の剣）/ 'blood'（魔剣）/ 'axe' / 'bloodAxe' / 'item'
   let glowBoost = 1; // 魔剣の光の強さ（強化中は明るく）
   let hurtTime = 0;
   let fainted = false;
@@ -376,6 +376,30 @@ export function createCharacter(colors = DEFAULT_COLORS) {
       // 旅人の剣：剣を体の横に下げた自然体。ときどき剣先を少し上げる
       armR.rotation.x = lerp(armR.rotation.x, -0.25 + Math.max(0, Math.sin(t * 0.7)) * 0.2, idle);
       sword.rotation.x = 0.35 + 0.3 * idle;
+    } else if (stance === 'axe') {
+      // 斧：片手で柄の端を持ち、刃を前の地面近くに下ろして、ときどき持ち直す
+      const calm = attackTime < 0 ? guard : 0;
+      const regrip = Math.max(0, Math.sin(t * 0.9)) ** 8; // ときどき、ひょいと持ち上げる
+      armR.rotation.x = lerp(armR.rotation.x, -0.35 - regrip * 0.35, calm);
+      armR.rotation.z = lerp(armR.rotation.z, 0.2, calm);
+      sword.rotation.x = lerp(0.35, 1.05 - regrip * 0.3, calm);
+      armL.rotation.x = lerp(armL.rotation.x, 0.1, idle);
+      bodyX += 0.04 * idle;
+      torso.rotation.y = lerp(torso.rotation.y, -0.12, idle);
+    } else if (stance === 'bloodAxe') {
+      // 血斧：大斧を後ろに引きずり、前のめりに構える
+      const calm = attackTime < 0 ? guard : 0;
+      armR.rotation.x = lerp(armR.rotation.x, 0.35 + Math.sin(t * 1.2) * 0.04, calm);
+      armR.rotation.z = lerp(armR.rotation.z, 0.3, calm);
+      sword.rotation.x = lerp(0.35, 1.55, calm); // 刃が地面すれすれに後ろへ
+      armL.rotation.x = lerp(armL.rotation.x, -0.5, idle);
+      armL.rotation.z = lerp(armL.rotation.z, -0.3, idle);
+      bodyX += 0.14 * idle;
+      headGroup.rotation.x += 0.12 * idle;
+      look.yaw *= 0.4;
+      headGroup.rotation.y = look.yaw;
+      legL.rotation.x -= 0.2 * idle;
+      legR.rotation.x += 0.15 * idle;
     } else if (stance === 'blood') {
       // 魔剣：前かがみになり、剣を低く斜めに構える。うつむき気味で、にらむ
       armR.rotation.x = lerp(armR.rotation.x, -0.55 + Math.sin(t * 1.1) * 0.05, guard);
@@ -642,6 +666,23 @@ export function createCharacter(colors = DEFAULT_COLORS) {
         scaleY -= 0.14 * dip - 0.06 * rise;
         bodyX += -0.1 * rise + 0.1 * dip;
         torso.rotation.y = lerp(0.3 * dip, -0.3, rise);
+      } else if (attackKind === 15) {
+        // 斧① 薪割り：両手で頭の上まで振りかぶり → 全体重をのせて振り下ろす
+        const raise = ease(seg(0, 0.18)) * (1 - seg(0.18, 0.28));
+        const slam = ease(seg(0.18, 0.28)) * (1 - back);
+        const armX = lerp(lerp(armR.rotation.x, -2.9, raise), -0.35, slam);
+        armR.rotation.x = armX;
+        armL.rotation.x = armX + 0.1; // 両手で握る
+        armR.rotation.z = lerp(armR.rotation.z, -0.2, Math.max(raise, slam));
+        armL.rotation.z = lerp(armL.rotation.z, 0.3, Math.max(raise, slam));
+        sword.rotation.x = lerp(0.35, 0.1, raise) + 0.55 * slam;
+        bodyX += -0.12 * raise + 0.32 * slam;
+        scaleY -= 0.1 * slam * (1 - seg(0.3, 0.45)) - 0.04 * raise;
+        legL.rotation.x -= 0.4 * slam;
+        legR.rotation.x += 0.25 * slam;
+        headGroup.rotation.y = 0;
+        trail.visible = a > 0.18 && a < 0.4;
+        trail.material.opacity = 0.8 * (1 - seg(0.28, 0.4));
       }
       if (a >= dur) {
         attackTime = -1;
@@ -694,7 +735,7 @@ export function createCharacter(colors = DEFAULT_COLORS) {
     bladeTip(out) {
       if (!sword.visible) return null;
       sword.updateWorldMatrix(true, false);
-      return sword.localToWorld(out.set(0, 0, heldBlood ? 2.6 : 1.9));
+      return sword.localToWorld(out.set(0, 0, heldBlood ? heldBlood.tip ?? 2.6 : 1.9));
     },
     /** 手に持つ物を見せる（'sword' / 'potion' / null = 素手） */
     setHeld(kind) {

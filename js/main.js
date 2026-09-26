@@ -7,7 +7,8 @@ import { createMinimap } from './minimap.js';
 import { createEnemies } from './enemies.js';
 import { createPopups } from './popups.js';
 import { MOVESETS, COMBO_WINDOW } from './attacks.js';
-import { ITEMS, SLOT_COUNT, HAZARDS, createInventory } from './items.js';
+import { ITEMS, SLOT_COUNT, HAZARDS, WOOD_IDS, DEMO, createInventory } from './items.js';
+import { createBuilding } from './building.js';
 import { SKILLS } from './skills.js';
 import { createFx } from './fx.js';
 
@@ -27,6 +28,9 @@ const TIPS = [
   'ヒント：数字キー 1〜8 で持ち物を切り替え。空のマスを選ぶと素手になります',
   'ヒント：魔剣サングレアを持つと、Q・E・R で 3 つの技が使えます',
   'ヒント：B キーで星の祭壇に戻れます',
+  'ヒント：斧は魔物には弱いけれど、木や柵をすぐに壊せます',
+  'ヒント：柵や扉を持って攻撃ボタンで建てられます。R で向きを変え、T で木材を選べます',
+  'ヒント：扉の近くで G キーを押すと開け閉めできます',
   'ヒント：木を攻撃すると切り倒せます。地方ごとに違う木材が手に入ります',
   'ヒント：Shift を押しながら移動すると走れます（スマホはスティックを端まで倒す）',
 ];
@@ -45,7 +49,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2600);
 
-let world, character, player, minimap, enemies, fx;
+let world, character, player, minimap, enemies, fx, building;
 const popups = createPopups($('popup-layer'));
 
 // ---------- ロード処理 ----------
@@ -74,6 +78,7 @@ async function load() {
       minimap = createMinimap($('minimap'), world);
       enemies = createEnemies(scene, world, $('label-layer'));
       fx = createFx(scene, world.groundHeight);
+      building = createBuilding(scene, world);
       updateMenuCamera();
     }],
     ['シーンを準備中...', async () => {
@@ -180,6 +185,12 @@ const input = createInput(canvas, {
       $('help').classList.toggle('hidden');
     } else if (/^Digit[1-8]$/.test(code)) {
       selectSlot(Number(code.slice(5)) - 1);
+    } else if (code === 'KeyG' || (code === 'KeyE' && !inventory.held?.skills)) {
+      useDoor();
+    } else if (code === 'KeyR' && inventory.held?.kind === 'build') {
+      rotateBuild();
+    } else if (code === 'KeyT' && inventory.held?.kind === 'build') {
+      cycleWood();
     } else if (code === 'KeyB' && !fainted) {
       player.respawn(Math.PI);
       cam.yaw = 0;
@@ -292,7 +303,8 @@ function renderHotbar() {
     b.classList.toggle('blood', !!s && ITEMS[s.id].rarity === 'blood');
     b.title = s ? itemTooltip(ITEMS[s.id]) : '空き（素手）';
     b.querySelector('.slot-icon').innerHTML = s ? ITEMS[s.id].icon : '';
-    b.querySelector('.slot-count').textContent = s && s.count > 1 ? s.count : '';
+    const infinite = s && inventory.infinite && ITEMS[s.id].kind !== 'weapon' && ITEMS[s.id].kind !== 'material';
+    b.querySelector('.slot-count').textContent = infinite ? '∞' : s && s.count > 1 ? s.count : '';
   });
   character.setHeld(inventory.held?.held ?? null);
   character.setTrailColor(inventory.held?.trail);
@@ -329,6 +341,10 @@ function selectSlot(i) {
 /** 攻撃ボタン：持っている物によって、攻撃するか薬を飲む */
 function useHeld() {
   const held = inventory.held;
+  if (held?.kind === 'build') {
+    placeBuild();
+    return;
+  }
   if (held?.kind === 'consumable') {
     if (combo.current || drinkTimer >= 0) return;
     if (held.heal && stats.hp >= stats.maxHp) {
@@ -451,6 +467,7 @@ function resolveHit(atk) {
   }
   applyHits(hits);
   chopTrees(atk);
+  breakStructures(atk);
   // 鮮血解放の間は、振るたびに血の斬撃波が飛ぶ
   if (buff?.waves && held?.rarity === 'blood') launchWave();
 }
@@ -481,7 +498,7 @@ function chopTrees(atk) {
   const results = world.chopTrees(player.position, player.facing, {
     range: atk.range,
     arc: atk.arc,
-    damage: stats.atk * atk.power * powerMult(),
+    damage: stats.atk * atk.power * (inventory.held?.chop ?? powerMult()),
   });
   for (const r of results) {
     fx.chips(r.pos, r.felled ? 14 : 6);
@@ -491,7 +508,7 @@ function chopTrees(atk) {
     const left = inventory.add(r.woodId, r.amount);
     const got = r.amount - left;
     if (got > 0) popups.add(headPos(), `+${got} ${wood.name}`, 'loot');
-    if (left > 0) toast('持ち物がいっぱいで、木材を持ちきれない…');
+    if (left > 0 && !DEMO) toast('持ち物がいっぱいで、木材を持ちきれない…');
     renderHotbar();
     if (got > 0 && !seenWoods.has(r.woodId)) {
       seenWoods.add(r.woodId);
@@ -499,6 +516,116 @@ function chopTrees(atk) {
     }
   }
   if (results.length && !hitStop) shake = Math.max(shake, 0.08);
+}
+
+// ---------- 建てる（柵と扉） ----------
+let buildRotated = false; // 向きを 90° 回すか
+let buildWood = 'woodYoung'; // 建てるのに使う木材
+let buildCooldown = 0;
+let lastPlan = null;
+
+/** カメラの向いている方向（建てる場所を決める） */
+const cameraFacing = () => cam.yaw + Math.PI;
+
+function rotateBuild() {
+  buildRotated = !buildRotated;
+}
+
+function cycleWood() {
+  // デモでは全部の木材を選べる。ふつうは持っている木材だけ
+  const owned = DEMO ? WOOD_IDS : WOOD_IDS.filter((id) => inventory.slots.some((s) => s?.id === id));
+  if (!owned.length) { toast('木材を持っていない'); return; }
+  buildWood = owned[(owned.indexOf(buildWood) + 1) % owned.length];
+  showItemCard(ITEMS[buildWood]);
+}
+
+function placeBuild() {
+  if (buildCooldown > 0 || combo.current || fainted) return;
+  const r = building.place(buildWood);
+  if (!r.ok) {
+    if (r.reason) toast(r.reason);
+    return;
+  }
+  buildCooldown = 0.25;
+  const s = r.structure;
+  character.attack(3);
+  fx.chips(new THREE.Vector3(s.x, s.y + 0.4, s.z), 8, ITEMS[buildWood].plank);
+  shake = Math.max(shake, 0.12);
+  inventory.consumeHeld();
+  renderHotbar();
+  if (r.env.weak.length) toast(`${r.env.weak.join('、')}…（耐久力 ${s.maxHp}）`, 2800);
+  else if (r.env.strong.length) toast(`${r.env.strong.join('、')}（耐久力 ${s.maxHp}）`, 2800);
+}
+
+/** 柵や扉を壊す。斧が得意 */
+function breakStructures(atk) {
+  const held = inventory.held;
+  const results = building.hit(player.position, player.facing, {
+    range: atk.range,
+    arc: atk.arc,
+    damage: stats.atk * atk.power * (held?.breaker ?? 0.35),
+  });
+  for (const r of results) {
+    const color = ITEMS[r.woodId].plank;
+    fx.chips(r.pos, r.destroyed ? 22 : 7, color);
+    popups.add(r.pos.clone().setY(r.pos.y + 1), String(r.damage), 'chop');
+    showTargetBar(r.name, r.hp, r.maxHp);
+    if (r.destroyed) {
+      shake = Math.max(shake, 0.35);
+      toast(`${r.name}を壊した`);
+    }
+  }
+  if (results.length && !held?.breaker) toast('斧のほうが、早く壊せる', 1500);
+}
+
+/** 叩いている物の耐久力を、少しのあいだ表示する */
+let targetTimer;
+function showTargetBar(name, hp, maxHp) {
+  const el = $('target-bar');
+  el.querySelector('b').textContent = name;
+  el.querySelector('span').textContent = `${hp} / ${maxHp}`;
+  el.querySelector('i').style.width = (hp / maxHp) * 100 + '%';
+  el.classList.remove('hidden');
+  clearTimeout(targetTimer);
+  targetTimer = setTimeout(() => el.classList.add('hidden'), 1800);
+}
+
+function playerBox() {
+  const p = player.position;
+  return new THREE.Box3(new THREE.Vector3(p.x - 0.8, p.y, p.z - 0.8), new THREE.Vector3(p.x + 0.8, p.y + 4.5, p.z + 0.8));
+}
+
+/** 近くの扉を開け閉めする */
+function useDoor() {
+  if (mode !== 'ingame' || fainted) return;
+  const door = building.nearestDoor(player.position);
+  if (!door) return;
+  if (!building.toggleDoor(door, player.position, playerBox())) toast('扉に挟まってしまう');
+}
+
+/** 毎コマ：建てる下見・建てる HUD・扉ボタン */
+function updateBuildHud(dt) {
+  buildCooldown = Math.max(0, buildCooldown - dt);
+  const held = inventory.held;
+  const type = mode === 'ingame' && held?.kind === 'build' && !fainted ? held.build : null;
+  lastPlan = building.preview(type, player.position, cameraFacing(), buildRotated, buildWood);
+  const hud = $('build-hud');
+  hud.classList.toggle('hidden', !type);
+  $('build-btns').classList.toggle('hidden', !type);
+  if (type) {
+    const wood = ITEMS[buildWood];
+    const env = building.climate(buildWood, lastPlan.x, lastPlan.z);
+    const hp = Math.round(wood.durability * (type === 'door' ? 1.2 : 1) * env.mult);
+    const note = !lastPlan.ok ? `<em class="ng">${lastPlan.reason}</em>`
+      : env.weak.length ? `<em class="weak">${env.weak[0]}</em>`
+      : env.strong.length ? `<em class="good">${env.strong[0]}</em>` : '';
+    const html = `${wood.icon}<div><b>${held.name}</b>　${wood.name}　耐久 ${hp}<small>${IS_MOBILE ? '⚔ 置く ・ 回転 ・ 木材' : 'クリック 置く ・ R 回転 ・ T 木材'}</small>${note}</div>`;
+    if (hud.dataset.html !== html) { hud.innerHTML = html; hud.dataset.html = html; }
+  }
+  const door = mode === 'ingame' ? building.nearestDoor(player.position) : null;
+  const btn = $('btn-use');
+  btn.classList.toggle('hidden', !door);
+  if (door) btn.textContent = `${IS_MOBILE ? '' : 'G '}${door.open ? '閉める' : '開ける'}`;
 }
 
 /** 木材などの説明カード（耐久力・特性・弱点） */
@@ -841,6 +968,9 @@ function toast(msg, ms = 2200) {
 }
 
 $('btn-play').addEventListener('click', startGame);
+$('btn-use').addEventListener('pointerdown', (e) => { e.preventDefault(); useDoor(); });
+$('btn-rotate').addEventListener('pointerdown', (e) => { e.preventDefault(); rotateBuild(); });
+$('btn-wood').addEventListener('pointerdown', (e) => { e.preventDefault(); cycleWood(); });
 $('btn-back').addEventListener('click', backToMenu);
 $('minimap').addEventListener('click', () => { minimap.expanded = !minimap.expanded; });
 
@@ -932,6 +1062,8 @@ function loop() {
 
   enemies.update(dt, { playerPos: player.position, playerActive: active, playerSwimming: player.swimming, onHitPlayer: hitPlayer, onBleed });
   world.update(dt, player.position, camera.position);
+  building.update(dt);
+  updateBuildHud(dt);
   updateCamera(realDt);
   // 画面の揺れ
   if (shake > 0.001) {

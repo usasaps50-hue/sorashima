@@ -519,7 +519,67 @@ html, body {
 .faint small { color: var(--muted); }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-.joystick, .jump-btn, .attack-btn, .skill-btns { display: none; }
+.joystick, .jump-btn, .attack-btn, .skill-btns, .build-btns { display: none; }
+
+/* 建てる時の案内 */
+.build-hud {
+  position: absolute;
+  left: 50%;
+  bottom: 124px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: rgba(28, 26, 58, .85);
+  border: 2px solid rgba(244, 194, 91, .35);
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.build-hud svg { width: 34px; height: 34px; flex: none; }
+.build-hud small { display: block; color: var(--muted); font-size: 11px; }
+.build-hud em { display: block; font-style: normal; font-weight: 800; font-size: 12px; }
+.build-hud em.ng { color: #ff9a8a; }
+.build-hud em.weak { color: #ffc08a; }
+.build-hud em.good { color: #a8e8b0; }
+
+/* 扉の開け閉めボタン */
+.use-btn {
+  position: absolute;
+  left: calc(50% + 70px);
+  top: 46%;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 2px solid rgba(244, 194, 91, .7);
+  background: rgba(28, 26, 58, .8);
+  color: var(--gold);
+  font-size: 15px;
+  font-weight: 800;
+  font-family: inherit;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: pointer;
+}
+
+/* 叩いている柵の耐久力 */
+.target-bar {
+  position: absolute;
+  left: 50%;
+  top: 16%;
+  transform: translateX(-50%);
+  width: 220px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(28, 26, 58, .8);
+  font-size: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+.target-bar div { height: 7px; margin: 4px 0 2px; border-radius: 4px; background: rgba(0, 0, 0, .4); overflow: hidden; }
+.target-bar i { display: block; height: 100%; background: linear-gradient(90deg, #c8a870, #f4c25b); transition: width .15s; }
+.target-bar span { color: var(--muted); font-size: 11px; }
 
 #blood-flash, #blood-vignette { position: fixed; inset: 0; pointer-events: none; z-index: 6; opacity: 0; }
 #blood-flash { background: radial-gradient(ellipse at center, rgba(255, 40, 60, .25) 20%, rgba(200, 0, 20, .7) 100%); }
@@ -606,6 +666,29 @@ html, body {
     bottom: 160px;
   }
   .skill-btns.hidden { display: none; }
+  .build-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: absolute;
+    right: 12px;
+    bottom: 160px;
+  }
+  .build-btns.hidden { display: none; }
+  .build-btn {
+    pointer-events: auto;
+    touch-action: none;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: 3px solid rgba(244, 194, 91, .7);
+    background: rgba(28, 26, 58, .6);
+    color: var(--gold);
+    font-size: 18px;
+    font-weight: 800;
+    font-family: inherit;
+  }
+  .build-hud { bottom: 250px; }
   .skill-btn {
     --cd: 0;
     pointer-events: auto;
@@ -691,6 +774,10 @@ html, body {
   .attack-btn { width: 64px; height: 64px; right: calc(108px + env(safe-area-inset-right)); bottom: calc(14px + env(safe-area-inset-bottom)); }
   .skill-btns { flex-direction: row; right: calc(24px + env(safe-area-inset-right)); bottom: calc(100px + env(safe-area-inset-bottom)); }
   .skill-btn { width: 46px; height: 46px; font-size: 16px; }
+  .build-btns { flex-direction: row; right: calc(24px + env(safe-area-inset-right)); bottom: calc(100px + env(safe-area-inset-bottom)); }
+  .build-btn { width: 46px; height: 46px; font-size: 16px; }
+  .build-hud { bottom: 58px; padding: 5px 10px; font-size: 11px; }
+  .build-hud svg { width: 26px; height: 26px; }
   .combo { bottom: 60px; font-size: 11px; }
   .buff { top: 10px; }
   .area-banner { top: 14%; font-size: 20px; }

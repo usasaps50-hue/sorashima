@@ -369,20 +369,20 @@ function buildColliderGrid(colliders) {
   const CELL = 24;
   const cells = new Map();
   const key = (ix, iz) => ix * 100000 + iz;
-  for (const c of colliders) {
+  /** c が入るマスの番号をすべて f に渡す */
+  const eachCell = (c, f) => {
     const x0 = Math.floor(c.box.min.x / CELL), x1 = Math.floor(c.box.max.x / CELL);
     const z0 = Math.floor(c.box.min.z / CELL), z1 = Math.floor(c.box.max.z / CELL);
-    for (let ix = x0; ix <= x1; ix++) {
-      for (let iz = z0; iz <= z1; iz++) {
-        const k = key(ix, iz);
-        if (!cells.has(k)) cells.set(k, []);
-        cells.get(k).push(c);
-      }
-    }
-  }
+    for (let ix = x0; ix <= x1; ix++) for (let iz = z0; iz <= z1; iz++) f(key(ix, iz));
+  };
+  const add = (c) => eachCell(c, (k) => {
+    if (!cells.has(k)) cells.set(k, []);
+    cells.get(k).push(c);
+  });
+  for (const c of colliders) add(c);
   let stamp = 0;
   const result = [];
-  return (x, z) => {
+  const near = (x, z) => {
     stamp++;
     result.length = 0;
     const cx = Math.floor(x / CELL), cz = Math.floor(z / CELL);
@@ -399,6 +399,18 @@ function buildColliderGrid(colliders) {
     }
     return result.slice();
   };
+  /** あとから置いた物（柵や扉）の当たり判定を足す／外す。box は足した時の大きさのままにしておくこと */
+  near.add = (c) => { colliders.push(c); add(c); };
+  near.remove = (c, box = c.box) => {
+    const i = colliders.indexOf(c);
+    if (i >= 0) colliders.splice(i, 1);
+    eachCell({ box }, (k) => {
+      const list = cells.get(k);
+      const j = list ? list.indexOf(c) : -1;
+      if (j >= 0) list.splice(j, 1);
+    });
+  };
+  return near;
 }
 
 // ---------- 切り倒せる木 ----------
@@ -630,6 +642,9 @@ export function buildWorld(scene, renderer, options = {}) {
     regionAt,
     /** 攻撃で木を切る（chopTrees の説明を参照） */
     chopTrees: forest.chop,
+    /** あとから置いた物の当たり判定を足す／外す */
+    addCollider: collidersNear.add,
+    removeCollider: collidersNear.remove,
     update(dt, focus, cameraPos) {
       t += dt;
       if (cameraPos) sky.position.copy(cameraPos);

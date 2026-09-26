@@ -87,7 +87,75 @@ function sangrea() {
   return { group: g, pulse: [vein.material, eye.material, runeMat, charm.material] };
 }
 
-const BUILDERS = { sangrea };
+// ---------- 木こりの斧：木の柄に、あご髭のような鉄の刃（刃は -Y 側） ----------
+function axe() {
+  const g = new THREE.Group();
+  const wood = new THREE.MeshStandardMaterial({ color: 0x9a6a3e, roughness: 0.85, flatShading: true });
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, 2.15, 7), wood);
+  handle.rotation.x = Math.PI / 2;
+  handle.position.z = 0.7;
+  const wrap = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.42, 7), new THREE.MeshStandardMaterial({ color: 0x5a3a28, roughness: 0.9 }));
+  wrap.rotation.x = Math.PI / 2;
+  const iron = metal(0x8a96a4, { roughness: 0.45 });
+  const head = new THREE.Mesh(bladeFromOutline([[1.3, 0.12], [1.74, 0.12], [1.92, -0.2], [2.08, -0.66], [1.62, -0.56], [1.36, -0.14]], 0.13), iron);
+  // よく研がれた刃のふち（明るい）
+  const edge = new THREE.Mesh(bladeFromOutline([[1.9, -0.18], [2.0, -0.2], [2.16, -0.7], [2.06, -0.68]], 0.07), metal(0xe8eef4, { roughness: 0.2 }));
+  const poll = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.36), iron);
+  poll.position.set(0, 0.2, 1.53);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.03, 5, 10), iron);
+  ring.position.z = 1.2;
+  g.add(handle, wrap, head, edge, poll, ring);
+  g.scale.setScalar(1.15);
+  return { group: g, pulse: [], tip: 2.3 };
+}
+
+// ---------- 血斧ガルムヘッド：黒い三日月の大刃、赤く光るふち、背の棘 ----------
+function bloodAxe() {
+  const g = new THREE.Group();
+  const bone = new THREE.MeshStandardMaterial({ color: 0x2a2026, roughness: 0.6, flatShading: true });
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.5, 7), bone);
+  handle.rotation.x = Math.PI / 2;
+  handle.position.z = 0.8;
+  const wrapMat = glow(0x8a1020, 0x600010, 0.8);
+  for (let i = 0; i < 3; i++) {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.1, 7), wrapMat);
+    w.rotation.x = Math.PI / 2;
+    w.position.z = -0.1 + i * 0.28;
+    g.add(w);
+  }
+  // 三日月の刃（外側の弧と、ギザギザの内側の弧）
+  const crescent = (R, r, thick, teeth) => {
+    const pts = [];
+    const u0 = 1.72, v0 = 0.08;
+    for (let i = 0; i <= 12; i++) {
+      const a = -1.15 + (i / 12) * 2.3;
+      pts.push([u0 + Math.sin(a) * R, v0 - Math.cos(a) * R]);
+    }
+    for (let i = 12; i >= 0; i--) {
+      const a = -1.0 + (i / 12) * 2.0;
+      const rr = r + (teeth && i % 2 ? 0.1 : 0);
+      pts.push([u0 + Math.sin(a) * rr * 0.8, v0 - Math.cos(a) * rr + 0.05]);
+    }
+    return bladeFromOutline(pts, thick);
+  };
+  const head = new THREE.Mesh(crescent(0.98, 0.42, 0.12, true), metal(0x16121a, { roughness: 0.3 }));
+  const rim = new THREE.Mesh(crescent(1.06, 0.6, 0.06, false), glow(0xff2030, 0xe01020, 1.6));
+  // 背の棘と、先の棘
+  const spikeMat = metal(0x241018);
+  const back = new THREE.Mesh(bladeFromOutline([[1.5, 0.1], [1.62, 0.72], [1.78, 0.52], [1.96, 0.1]], 0.1), spikeMat);
+  const top = new THREE.Mesh(bladeFromOutline([[1.95, 0.1], [2.55, 0], [1.95, -0.1]], 0.1), spikeMat);
+  // 刃の中央の、赤い瞳
+  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), glow(0xffd0d0, 0xff2030, 1.3));
+  eye.scale.set(1.3, 1, 1);
+  eye.position.set(0, -0.28, 1.72);
+  const pommel = new THREE.Mesh(new THREE.OctahedronGeometry(0.13, 0), glow(0xff2a3a, 0xc00018, 1.5));
+  pommel.position.z = -0.5;
+  g.add(handle, head, rim, back, top, eye, pommel);
+  g.scale.setScalar(1.3);
+  return { group: g, pulse: [rim.material, eye.material, wrapMat, pommel.material], tip: 3.1 };
+}
+
+const BUILDERS = { sangrea, axe, bloodAxe };
 
 /** 剣のモデルを作る。pulse は脈打たせるマテリアル（光の強さを時間で変える） */
 export function buildSword(id) {
