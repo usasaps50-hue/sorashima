@@ -30,6 +30,7 @@ const TIPS = [
   'ヒント：B キーで星の祭壇に戻れます',
   'ヒント：斧は魔物には弱いけれど、木や柵をすぐに壊せます',
   'ヒント：柵や扉を持って攻撃ボタンで建てられます。R で向きを変え、T で木材を選べます',
+  'ヒント：柵や壁を持って V キーを押すと、角を 2 つ選ぶだけで四角く囲えます',
   'ヒント：扉の近くで G キーを押すと開け閉めできます',
   'ヒント：木を攻撃すると切り倒せます。地方ごとに違う木材が手に入ります',
   'ヒント：Shift を押しながら移動すると走れます（スマホはスティックを端まで倒す）',
@@ -177,7 +178,8 @@ const input = createInput(canvas, {
   skillBtnsEl: $('skill-btns'),
   onKey(code) {
     if (code === 'Escape') {
-      if (minimap.expanded) minimap.expanded = false;
+      if (corner) { corner = null; toast('角の選択をやめた'); }
+      else if (minimap.expanded) minimap.expanded = false;
       else backToMenu();
     } else if (code === 'KeyM') {
       minimap.expanded = !minimap.expanded;
@@ -191,6 +193,8 @@ const input = createInput(canvas, {
       rotateBuild();
     } else if (code === 'KeyT' && inventory.held?.kind === 'build') {
       cycleWood();
+    } else if (code === 'KeyV' && inventory.held?.kind === 'build') {
+      toggleEnclose();
     } else if (code === 'KeyB' && !fainted) {
       player.respawn(Math.PI);
       cam.yaw = 0;
@@ -328,6 +332,7 @@ function selectSlot(i) {
   if (combo.current || drinkTimer >= 0 || skillState || fainted) return;
   inventory.selected = i;
   combo.step = -1;
+  corner = null;
   renderHotbar();
   const held = inventory.held;
   const el = $('held-name');
@@ -518,17 +523,30 @@ function chopTrees(atk) {
   if (results.length && !hitStop) shake = Math.max(shake, 0.08);
 }
 
-// ---------- 建てる（柵と扉） ----------
+// ---------- 建てる（柵・壁・門扉） ----------
 let buildRotated = false; // 向きを 90° 回すか
 let buildWood = 'woodYoung'; // 建てるのに使う木材
 let buildCooldown = 0;
 let lastPlan = null;
+let enclose = false; // 囲うモード（柵・壁で、四角形に一気に囲う）
+let corner = null; // 囲うモードで、最初に選んだ角
 
 /** カメラの向いている方向（建てる場所を決める） */
 const cameraFacing = () => cam.yaw + Math.PI;
+const canEnclose = () => ['fence', 'wall'].includes(inventory.held?.build);
 
 function rotateBuild() {
   buildRotated = !buildRotated;
+}
+
+function toggleEnclose() {
+  if (!canEnclose()) {
+    if (inventory.held?.build === 'door') toast('門扉は 1 つずつ置きます。柵や壁の列の上に置くと入れ替わります');
+    return;
+  }
+  enclose = !enclose;
+  corner = null;
+  toast(enclose ? '囲うモード：1 つ目の角を選んで、置くボタン' : '1 枚ずつ置くモード');
 }
 
 function cycleWood() {
@@ -541,20 +559,30 @@ function cycleWood() {
 
 function placeBuild() {
   if (buildCooldown > 0 || combo.current || fainted) return;
+  // 囲うモードの 1 回目は、角を決めるだけ
+  if (enclose && canEnclose() && !corner) {
+    corner = building.cornerAt(player.position, cameraFacing());
+    toast('もう 1 つの角（対角）を選んで、置くボタン');
+    buildCooldown = 0.2;
+    return;
+  }
   const r = building.place(buildWood);
-  if (!r.ok) {
+  corner = null;
+  if (!r.placed) {
     if (r.reason) toast(r.reason);
     return;
   }
   buildCooldown = 0.25;
-  const s = r.structure;
   character.attack(3);
-  fx.chips(new THREE.Vector3(s.x, s.y + 0.4, s.z), 8, ITEMS[buildWood].plank);
-  shake = Math.max(shake, 0.12);
+  for (const s of r.structures) fx.chips(new THREE.Vector3(s.x, s.y + 0.4, s.z), r.placed > 4 ? 3 : 8, ITEMS[buildWood].plank);
+  shake = Math.max(shake, r.placed > 1 ? 0.25 : 0.12);
   inventory.consumeHeld();
   renderHotbar();
-  if (r.env.weak.length) toast(`${r.env.weak.join('、')}…（耐久力 ${s.maxHp}）`, 2800);
-  else if (r.env.strong.length) toast(`${r.env.strong.join('、')}（耐久力 ${s.maxHp}）`, 2800);
+  const hp = r.structures[0].maxHp;
+  const head = r.placed > 1 ? `${r.placed} 枚を建てた。` : '';
+  if (r.env.weak.length) toast(`${head}${r.env.weak.join('、')}…（耐久力 ${hp}）`, 2800);
+  else if (r.env.strong.length) toast(`${head}${r.env.strong.join('、')}（耐久力 ${hp}）`, 2800);
+  else if (head) toast(`${head}（1 枚の耐久力 ${hp}）`);
 }
 
 /** 柵や扉を壊す。斧が得意 */
@@ -608,18 +636,29 @@ function updateBuildHud(dt) {
   buildCooldown = Math.max(0, buildCooldown - dt);
   const held = inventory.held;
   const type = mode === 'ingame' && held?.kind === 'build' && !fainted ? held.build : null;
-  lastPlan = building.preview(type, player.position, cameraFacing(), buildRotated, buildWood);
+  const rect = enclose && canEnclose();
+  lastPlan = building.preview(type, player.position, cameraFacing(), buildRotated, buildWood, rect ? corner : null);
   const hud = $('build-hud');
   hud.classList.toggle('hidden', !type);
   $('build-btns').classList.toggle('hidden', !type);
+  $('btn-enclose').classList.toggle('on', rect);
   if (type) {
     const wood = ITEMS[buildWood];
-    const env = building.climate(buildWood, lastPlan.x, lastPlan.z);
-    const hp = Math.round(wood.durability * (type === 'door' ? 1.2 : 1) * env.mult);
-    const note = !lastPlan.ok ? `<em class="ng">${lastPlan.reason}</em>`
-      : env.weak.length ? `<em class="weak">${env.weak[0]}</em>`
-      : env.strong.length ? `<em class="good">${env.strong[0]}</em>` : '';
-    const html = `${wood.icon}<div><b>${held.name}</b>　${wood.name}　耐久 ${hp}<small>${IS_MOBILE ? '⚔ 置く ・ 回転 ・ 木材' : 'クリック 置く ・ R 回転 ・ T 木材'}</small>${note}</div>`;
+    const p = lastPlan;
+    let note = '';
+    if (rect && !corner) note = '<em class="good">囲うモード：1 つ目の角を選ぶ</em>';
+    else if (rect && corner) {
+      note = p.count
+        ? `<em class="${p.ok === p.count ? 'good' : 'weak'}">${p.w}×${p.d} マス（${p.w * 4}m × ${p.d * 4}m）・${p.ok} 枚${p.ok < p.count ? `（${p.count - p.ok} 枚は置けない：${p.reason}）` : ''}</em>`
+        : '<em class="weak">もう 1 つの角を選ぶ（Esc でやめる）</em>';
+    } else if (p.ok < p.count) note = `<em class="ng">${p.reason}</em>`;
+    else if (p.env.weak.length) note = `<em class="weak">${p.env.weak[0]}</em>`;
+    else if (p.env.strong.length) note = `<em class="good">${p.env.strong[0]}</em>`;
+    if (p.plans[0]?.replace?.length) note += `<em class="good">柵・壁 ${p.plans[0].replace.length} 枚と入れ替える</em>`;
+    const keys = IS_MOBILE
+      ? `⚔ 置く ・ ⟳ 回転 ・ 木 木材${canEnclose() ? ' ・ 囲 囲う' : ''}`
+      : `クリック 置く ・ R 回転 ・ T 木材${canEnclose() ? ' ・ V 囲う' : ''}`;
+    const html = `${wood.icon}<div><b>${held.name}</b>　${wood.name}　耐久 ${p.hp}<small>${keys}</small>${note}</div>`;
     if (hud.dataset.html !== html) { hud.innerHTML = html; hud.dataset.html = html; }
   }
   const door = mode === 'ingame' ? building.nearestDoor(player.position) : null;
@@ -971,6 +1010,7 @@ $('btn-play').addEventListener('click', startGame);
 $('btn-use').addEventListener('pointerdown', (e) => { e.preventDefault(); useDoor(); });
 $('btn-rotate').addEventListener('pointerdown', (e) => { e.preventDefault(); rotateBuild(); });
 $('btn-wood').addEventListener('pointerdown', (e) => { e.preventDefault(); cycleWood(); });
+$('btn-enclose').addEventListener('pointerdown', (e) => { e.preventDefault(); toggleEnclose(); });
 $('btn-back').addEventListener('click', backToMenu);
 $('minimap').addEventListener('click', () => { minimap.expanded = !minimap.expanded; });
 

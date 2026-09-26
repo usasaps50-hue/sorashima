@@ -26,7 +26,8 @@ const ICONS = {
   axe: axeIcon('#9a6a3e', '#c8d2dc', '#6a7888'),
   bloodAxe: axeIcon('#2a1418', '#16121a', '#ff2030', '<path d="M20 8c3 1 5 3 6 6" stroke="#ff2030" stroke-width="1.4" fill="none"/><circle cx="7" cy="27" r="1.6" fill="#ff2a3a"/>'),
   fence: `<svg viewBox="0 0 32 32"><g fill="#c89a64" stroke="#7a5534" stroke-width="1"><path d="M5 9l2-3 2 3v18H5z"/><path d="M14 9l2-3 2 3v18h-4z"/><path d="M23 9l2-3 2 3v18h-4z"/><rect x="3" y="12" width="26" height="3"/><rect x="3" y="20" width="26" height="3"/></g></svg>`,
-  door: `<svg viewBox="0 0 32 32"><rect x="4" y="4" width="4" height="24" fill="#7a5534"/><rect x="24" y="4" width="4" height="24" fill="#7a5534"/><rect x="8" y="6" width="16" height="22" fill="#c89a64" stroke="#7a5534"/><path d="M8 11h16M8 17h16M8 23h16" stroke="#9a6a3e"/><circle cx="21" cy="17" r="1.4" fill="#f4c25b"/></svg>`,
+  door: `<svg viewBox="0 0 32 32"><rect x="2" y="5" width="3.5" height="23" fill="#7a5534"/><rect x="26.5" y="5" width="3.5" height="23" fill="#7a5534"/><rect x="1" y="3" width="30" height="3" fill="#7a5534"/><rect x="5.5" y="8" width="10.3" height="20" fill="#c89a64" stroke="#7a5534"/><rect x="16.2" y="8" width="10.3" height="20" fill="#c89a64" stroke="#7a5534"/><path d="M6 26L15 10M26 26L17 10" stroke="#7a5534" stroke-width="1.2"/><circle cx="14" cy="18" r="1.2" fill="#3a3238"/><circle cx="18" cy="18" r="1.2" fill="#3a3238"/></svg>`,
+  wall: `<svg viewBox="0 0 32 32"><g stroke="#5a3a24" stroke-width="1"><rect x="3" y="6" width="26" height="5" rx="2.5" fill="#c89a64"/><rect x="3" y="11" width="26" height="5" rx="2.5" fill="#a87a4a"/><rect x="3" y="16" width="26" height="5" rx="2.5" fill="#c89a64"/><rect x="3" y="21" width="26" height="5" rx="2.5" fill="#a87a4a"/><rect x="2" y="4" width="4" height="24" fill="#7a5534"/><rect x="26" y="4" width="4" height="24" fill="#7a5534"/></g></svg>`,
   sangrea: bloodIcon('#0e0c12', '#ff2030', '#241018', '<path d="M13 19l12-12" stroke="#ff2030" stroke-width="1.6"/><circle cx="12" cy="20" r="1.4" fill="#ffd0d0"/>'),
   sword: `<svg viewBox="0 0 32 32"><path d="M24 4l4 0 0 4-13 13-4-4z" fill="#e6eef5" stroke="#8fa3b5" stroke-width="1.2"/><path d="M9 17l6 6-2 2-6-6z" fill="#f4c25b"/><path d="M8 22l2 2-4 4-2-2z" fill="#8a5a3b"/></svg>`,
   potion: `<svg viewBox="0 0 32 32"><rect x="13" y="4" width="6" height="5" rx="1" fill="#b07a55"/><path d="M12 9h8v4l4 5v7a3 3 0 01-3 3H11a3 3 0 01-3-3v-7l4-5z" fill="#dff4ff" opacity=".8"/><path d="M9 18h14v7a2 2 0 01-2 2H11a2 2 0 01-2-2z" fill="#ff5a6e"/><circle cx="13" cy="21" r="1.4" fill="#fff" opacity=".8"/></svg>`,
@@ -142,9 +143,15 @@ export const ITEMS = {
     kind: 'build', build: 'fence', held: null, stance: 'item', stack: 99,
     icon: ICONS.fence,
   },
+  wall: {
+    name: '丸太の壁',
+    desc: '4m の高い壁。柵より 2 倍以上丈夫で、跳んでも越えられない',
+    kind: 'build', build: 'wall', held: null, stance: 'item', stack: 99,
+    icon: ICONS.wall,
+  },
   door: {
-    name: '木の扉',
-    desc: '開け閉めできる扉つきの柵。G キーで開け閉めする',
+    name: '大きな門扉',
+    desc: '8m の両開きの門。柵や壁の列の上に置くと、その部分と入れ替わる。G キーで開け閉め',
     kind: 'build', build: 'door', held: null, stance: 'item', stack: 99,
     icon: ICONS.door,
   },
@@ -168,7 +175,7 @@ export const DEMO = true;
 export function createInventory() {
   const slots = Array(SLOT_COUNT).fill(null);
   const start = DEMO
-    ? ['axe', 'bloodAxe', 'sword', 'sangrea', 'fence', 'door', 'potion']
+    ? ['axe', 'bloodAxe', 'sangrea', 'fence', 'wall', 'door', 'potion']
     : ['axe', 'sword', 'potion'];
   start.forEach((id, i) => { slots[i] = { id, count: ITEMS[id].kind === 'weapon' ? 1 : DEMO ? 99 : 3 }; });
   let selected = 0;

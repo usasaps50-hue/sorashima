@@ -544,6 +544,7 @@ html, body {
 .build-hud em.ng { color: #ff9a8a; }
 .build-hud em.weak { color: #ffc08a; }
 .build-hud em.good { color: #a8e8b0; }
+.build-btn.on { background: rgba(244, 194, 91, .85); color: #2a2040; }
 
 /* 扉の開け閉めボタン */
 .use-btn {
