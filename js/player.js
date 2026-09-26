@@ -179,6 +179,13 @@ export function createPlayer(character, world) {
       grounded = true;
     },
 
+    /** (x, z) の地面の上へ移動する */
+    teleport(x, z) {
+      pos.set(x, world.groundHeight(x, z) + 0.5, z);
+      vel.set(0, 0, 0);
+      push.set(0, 0);
+    },
+
     /** 向きをすぐに変える（攻撃の方向を決める時など） */
     setFacing(dir) {
       facing = dir;

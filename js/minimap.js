@@ -71,6 +71,7 @@ export function createMinimap(canvas, world) {
       g.strokeStyle = '#ffffff';
       g.lineWidth = 1.2 * dpr;
       for (const e of enemies) {
+        g.fillStyle = e.pet ? '#6fe08a' : '#e0475a';
         g.beginPath();
         g.arc(toX(e.x), toY(e.z), (e.big ? 3.6 : 2.6) * dpr, 0, Math.PI * 2);
         g.fill();

@@ -27,6 +27,9 @@ const ICONS = {
   bloodAxe: axeIcon('#2a1418', '#16121a', '#ff2030', '<path d="M20 8c3 1 5 3 6 6" stroke="#ff2030" stroke-width="1.4" fill="none"/><circle cx="7" cy="27" r="1.6" fill="#ff2a3a"/>'),
   fence: `<svg viewBox="0 0 32 32"><g fill="#c89a64" stroke="#7a5534" stroke-width="1"><path d="M5 9l2-3 2 3v18H5z"/><path d="M14 9l2-3 2 3v18h-4z"/><path d="M23 9l2-3 2 3v18h-4z"/><rect x="3" y="12" width="26" height="3"/><rect x="3" y="20" width="26" height="3"/></g></svg>`,
   door: `<svg viewBox="0 0 32 32"><rect x="2" y="5" width="3.5" height="23" fill="#7a5534"/><rect x="26.5" y="5" width="3.5" height="23" fill="#7a5534"/><rect x="1" y="3" width="30" height="3" fill="#7a5534"/><rect x="5.5" y="8" width="10.3" height="20" fill="#c89a64" stroke="#7a5534"/><rect x="16.2" y="8" width="10.3" height="20" fill="#c89a64" stroke="#7a5534"/><path d="M6 26L15 10M26 26L17 10" stroke="#7a5534" stroke-width="1.2"/><circle cx="14" cy="18" r="1.2" fill="#3a3238"/><circle cx="18" cy="18" r="1.2" fill="#3a3238"/></svg>`,
+  trap: `<svg viewBox="0 0 32 32"><g stroke="#5a3a24" stroke-width="1.2"><rect x="4" y="4" width="2.5" height="24" fill="#7a5534"/><rect x="25.5" y="4" width="2.5" height="24" fill="#7a5534"/><rect x="3" y="3" width="26" height="3" fill="#7a5534"/><path d="M9 8v12M13 8v12M17 8v12M21 8v12" stroke="#9a6a3e" stroke-width="1.6"/><rect x="8" y="7" width="15" height="2" fill="#c89a64"/><rect x="8" y="19" width="15" height="2" fill="#c89a64"/><rect x="9" y="25" width="14" height="2.4" fill="#c89a64"/></g><ellipse cx="16" cy="24" rx="2.4" ry="1.3" fill="#d8586a"/></svg>`,
+  meat: `<svg viewBox="0 0 32 32"><path d="M20 5c5 1 8 6 6 12-2 6-9 9-14 7-3-1-4-4-3-7 1-6 6-13 11-12z" fill="#d8586a" stroke="#8a2a3a" stroke-width="1.3"/><path d="M18 9c3 0 5 3 4 6" stroke="#ffb0b8" stroke-width="1.6" fill="none"/><path d="M11 20l-6 6" stroke="#f4ead8" stroke-width="3.2" stroke-linecap="round"/><circle cx="4.5" cy="27.5" r="2" fill="#f4ead8"/><circle cx="6.5" cy="28.8" r="1.7" fill="#f4ead8"/></svg>`,
+  flag: `<svg viewBox="0 0 32 32"><rect x="7" y="3" width="2.2" height="25" fill="#7a5534"/><path d="M9.2 4h16l-4 5 4 5h-16z" fill="#2bb5a0" stroke="#1a7a6a"/><circle cx="15" cy="9" r="2" fill="#f4c25b"/><rect x="4" y="26" width="8.5" height="3" rx="1" fill="#9a96a0"/></svg>`,
   wall: `<svg viewBox="0 0 32 32"><g stroke="#5a3a24" stroke-width="1"><rect x="3" y="6" width="26" height="5" rx="2.5" fill="#c89a64"/><rect x="3" y="11" width="26" height="5" rx="2.5" fill="#a87a4a"/><rect x="3" y="16" width="26" height="5" rx="2.5" fill="#c89a64"/><rect x="3" y="21" width="26" height="5" rx="2.5" fill="#a87a4a"/><rect x="2" y="4" width="4" height="24" fill="#7a5534"/><rect x="26" y="4" width="4" height="24" fill="#7a5534"/></g></svg>`,
   sangrea: bloodIcon('#0e0c12', '#ff2030', '#241018', '<path d="M13 19l12-12" stroke="#ff2030" stroke-width="1.6"/><circle cx="12" cy="20" r="1.4" fill="#ffd0d0"/>'),
   sword: `<svg viewBox="0 0 32 32"><path d="M24 4l4 0 0 4-13 13-4-4z" fill="#e6eef5" stroke="#8fa3b5" stroke-width="1.2"/><path d="M9 17l6 6-2 2-6-6z" fill="#f4c25b"/><path d="M8 22l2 2-4 4-2-2z" fill="#8a5a3b"/></svg>`,
@@ -156,6 +159,25 @@ export const ITEMS = {
     icon: ICONS.door,
   },
 
+  trap: {
+    name: '木のわな',
+    desc: '踏むと檻が落ちてくる。怒らせたクマを誘いこんで閉じこめる',
+    kind: 'build', build: 'trap', held: null, stance: 'item', stack: 99,
+    icon: ICONS.trap,
+  },
+  flag: {
+    name: '拠点の旗',
+    desc: '柵で囲った中に立てると、そこが拠点の牧場になる。ペットを休ませられる',
+    kind: 'build', build: 'flag', held: null, stance: 'item', stack: 99,
+    icon: ICONS.flag,
+  },
+  meat: {
+    name: '生肉',
+    desc: 'わなにかかったクマにあげると、仲間になる。ペットにあげると元気になる',
+    kind: 'food', held: null, stance: 'item', stack: 99,
+    icon: ICONS.meat,
+  },
+
   potion: {
     name: '回復薬',
     desc: '飲むと HP が 40 回復する',
@@ -166,7 +188,7 @@ export const ITEMS = {
   },
 };
 
-export const SLOT_COUNT = 8;
+export const SLOT_COUNT = 10;
 
 // デモ用：すべての道具を持ち、薬や建てる物は減らない（無限）
 export const DEMO = true;
@@ -175,7 +197,7 @@ export const DEMO = true;
 export function createInventory() {
   const slots = Array(SLOT_COUNT).fill(null);
   const start = DEMO
-    ? ['axe', 'bloodAxe', 'sangrea', 'fence', 'wall', 'door', 'potion']
+    ? ['axe', 'bloodAxe', 'sangrea', 'fence', 'wall', 'door', 'trap', 'meat', 'flag', 'potion']
     : ['axe', 'sword', 'potion'];
   start.forEach((id, i) => { slots[i] = { id, count: ITEMS[id].kind === 'weapon' ? 1 : DEMO ? 99 : 3 }; });
   let selected = 0;
@@ -185,10 +207,11 @@ export function createInventory() {
     /** 減らない（デモ用） */
     infinite: DEMO,
     get selected() { return selected; },
-    set selected(i) { selected = Math.max(0, Math.min(SLOT_COUNT - 1, i)); },
+    /** -1 なら何も持たない（素手） */
+    set selected(i) { selected = Math.max(-1, Math.min(SLOT_COUNT - 1, i)); },
     /** 今持っている物（空なら null） */
     get held() {
-      const s = slots[selected];
+      const s = slots[selected] ?? null;
       return s ? { ...ITEMS[s.id], id: s.id, count: s.count } : null;
     },
     /** 今持っている物を 1 つ減らす（なくなったら空にする） */

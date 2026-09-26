@@ -4,7 +4,7 @@ import { createCharacter } from './character.js';
 import { createPlayer } from './player.js';
 import { createInput } from './input.js';
 import { createMinimap } from './minimap.js';
-import { createEnemies } from './enemies.js';
+import { createAnimals } from './animals.js';
 import { createPopups } from './popups.js';
 import { MOVESETS, COMBO_WINDOW } from './attacks.js';
 import { ITEMS, SLOT_COUNT, HAZARDS, WOOD_IDS, DEMO, createInventory } from './items.js';
@@ -19,11 +19,13 @@ const TIPS = [
   'ヒント：古代遺跡の台地の塔のてっぺんに、クリスタルが眠っています',
   'ヒント：4本の大橋を渡ると、それぞれ別の島へ行けます',
   'ヒント：島はとても広い。M キーの地図で名所を探してみよう',
-  'ヒント：遠くの地方ほど魔物が強くなります。レベルを上げてから行こう',
-  'ヒント：海や湖では泳げます。泳いでいる間は魔物に襲われません',
+  'ヒント：白嶺の雪原には、たまにシロクマが現れます。親子で歩いていることも',
+  'ヒント：シロクマを攻撃して怒らせ、木のわなに誘いこんで、生肉をあげると仲間になります',
+  'ヒント：拠点の旗を柵の囲いの中に立てると、牧場になってペットを休ませられます',
+  'ヒント：海や湖では泳げます。泳いでいる間はクマに襲われません',
   'ヒント：シオカゼ村は安全地帯です',
   'ヒント：M キーで島の地図を大きく表示できます',
-  'ヒント：祭壇のまわりは安全地帯。魔物は入ってこられません',
+  'ヒント：祭壇のまわりは安全地帯。野生の動物は入ってこられません',
   'ヒント：クリックか F キーで剣を振れます。続けて押すと3段コンボ',
   'ヒント：数字キー 1〜8 で持ち物を切り替え。空のマスを選ぶと素手になります',
   'ヒント：魔剣サングレアを持つと、Q・E・R で 3 つの技が使えます',
@@ -77,7 +79,8 @@ async function load() {
       player = createPlayer(character, world);
       player.respawn();
       minimap = createMinimap($('minimap'), world);
-      enemies = createEnemies(scene, world, $('label-layer'));
+      enemies = createAnimals(scene, world, $('label-layer'));
+      enemies.onEvent = (msg) => toast(msg, 3000);
       fx = createFx(scene, world.groundHeight);
       building = createBuilding(scene, world);
       updateMenuCamera();
@@ -185,8 +188,11 @@ const input = createInput(canvas, {
       minimap.expanded = !minimap.expanded;
     } else if (code === 'KeyH') {
       $('help').classList.toggle('hidden');
-    } else if (/^Digit[1-8]$/.test(code)) {
-      selectSlot(Number(code.slice(5)) - 1);
+    } else if (/^Digit[0-9]$/.test(code)) {
+      const n = Number(code.slice(5));
+      selectSlot(n === 0 ? 9 : n - 1);
+    } else if (code === 'KeyP') {
+      togglePetPanel();
     } else if (code === 'KeyG' || (code === 'KeyE' && !inventory.held?.skills)) {
       useDoor();
     } else if (code === 'KeyR' && inventory.held?.kind === 'build') {
@@ -196,9 +202,7 @@ const input = createInput(canvas, {
     } else if (code === 'KeyV' && inventory.held?.kind === 'build') {
       toggleEnclose();
     } else if (code === 'KeyB' && !fainted) {
-      player.respawn(Math.PI);
-      cam.yaw = 0;
-      toast('星の祭壇に戻りました');
+      goHome();
     }
   },
 });
@@ -330,7 +334,8 @@ let heldNameTimer;
 function selectSlot(i) {
   // 技や薬を使っている途中は持ち替えない
   if (combo.current || drinkTimer >= 0 || skillState || fainted) return;
-  inventory.selected = i;
+  // 選んでいるマスをもう一度押すと、素手になる
+  inventory.selected = i === inventory.selected ? -1 : i;
   combo.step = -1;
   corner = null;
   renderHotbar();
@@ -348,6 +353,10 @@ function useHeld() {
   const held = inventory.held;
   if (held?.kind === 'build') {
     placeBuild();
+    return;
+  }
+  if (held?.kind === 'food') {
+    feedMeat();
     return;
   }
   if (held?.kind === 'consumable') {
@@ -579,6 +588,17 @@ function placeBuild() {
   inventory.consumeHeld();
   renderHotbar();
   const hp = r.structures[0].maxHp;
+  const kind = r.structures[0].type;
+  if (kind === 'flag') {
+    const pen = basePen();
+    if (pen) toast(`拠点を作った！　牧場 ${pen.count} マス（${pen.area}㎡）・ペット ${penCapacity(pen)} 枠`, 3500);
+    else toast('拠点の旗を立てた。でも柵で囲われていない…　囲いの中に立てると牧場になる', 3500);
+    return;
+  }
+  if (kind === 'trap') {
+    toast('わなを置いた。クマを怒らせて、ここへ誘いこもう', 3000);
+    return;
+  }
   const head = r.placed > 1 ? `${r.placed} 枚を建てた。` : '';
   if (r.env.weak.length) toast(`${head}${r.env.weak.join('、')}…（耐久力 ${hp}）`, 2800);
   else if (r.env.strong.length) toast(`${head}${r.env.strong.join('、')}（耐久力 ${hp}）`, 2800);
@@ -667,6 +687,111 @@ function updateBuildHud(dt) {
   if (door) btn.textContent = `${IS_MOBILE ? '' : 'G '}${door.open ? '閉める' : '開ける'}`;
 }
 
+// ---------- 拠点・牧場・ペット ----------
+let penCache = null, penVersion = -1;
+
+/** 拠点の旗のまわりの、柵で囲まれた牧場（なければ null） */
+function basePen() {
+  const b = building?.base;
+  if (!b) return null;
+  if (penVersion !== building.version) {
+    penCache = building.penAt(b.x, b.z);
+    penVersion = building.version;
+  }
+  return penCache;
+}
+
+/** 牧場の広さで決まる、ペットの枠（親 2・子 1 を使う） */
+const penCapacity = (pen) => (pen ? Math.floor(pen.area / 40) : 0);
+
+/** 拠点（なければ星の祭壇）に戻る */
+function goHome() {
+  const b = building.base;
+  if (b) {
+    player.teleport(b.x + 3, b.z + 3);
+    toast('拠点に戻りました');
+  } else {
+    player.respawn(Math.PI);
+    cam.yaw = 0;
+    toast('星の祭壇に戻りました（拠点の旗を立てると、そこに戻れる）');
+  }
+}
+
+/** 生肉をあげる */
+function feedMeat() {
+  if (combo.current || fainted || buildCooldown > 0) return;
+  buildCooldown = 0.4;
+  const r = enemies.feed(player.position, building);
+  const b = r.bear;
+  if (r.result === 'tamed') {
+    inventory.consumeHeld();
+    renderHotbar();
+    character.wave();
+    const pos = new THREE.Vector3(b.pos.x, b.pos.y + b.K.height + 1, b.pos.z);
+    popups.add(pos, '♥ 仲間になった！', 'levelup');
+    fx.chips(pos, 16, 0xff8fb0);
+    const fam = b.parent && !b.parent.wild ? `（親は ${b.parent.name}）` : '';
+    toast(`${b.name}（シロクマの${b.K.label}）が仲間になった！${fam}　P キーでペットの一覧`, 4000);
+    renderPetPanel();
+  } else if (r.result === 'fed') {
+    inventory.consumeHeld();
+    renderHotbar();
+    popups.add(new THREE.Vector3(b.pos.x, b.pos.y + b.K.height + 1, b.pos.z), '♥', 'heal');
+  } else if (r.result === 'notTrapped') {
+    toast('わなに閉じこめてから、生肉をあげよう');
+  } else {
+    toast('近くに、生肉をあげる相手がいない');
+  }
+}
+
+// ペットの一覧（P キー）
+let petPanelTimer = 0;
+function togglePetPanel() {
+  if (mode !== 'ingame') return;
+  $('pet-panel').classList.toggle('hidden');
+  renderPetPanel();
+}
+
+function updatePetPanel(dt) {
+  const n = enemies.pets.length;
+  $('btn-pets').textContent = `🐾 ${n}`;
+  if ($('pet-panel').classList.contains('hidden')) return;
+  petPanelTimer -= dt;
+  if (petPanelTimer <= 0) { petPanelTimer = 0.5; renderPetPanel(); }
+}
+
+function renderPetPanel() {
+  const el = $('pet-panel');
+  if (el.classList.contains('hidden')) return;
+  const pen = basePen();
+  const cap = penCapacity(pen);
+  const used = enemies.usedSlots();
+  const pets = enemies.pets;
+  const baseLine = !building.base
+    ? '拠点がまだない。柵で囲った中に「拠点の旗」を立てよう'
+    : !pen ? '拠点の旗のまわりが、柵で囲われていない'
+    : `牧場 ${pen.count} マス（${pen.area}㎡）・枠 ${used} / ${cap}　<small>親は 2 枠、子は 1 枠</small>`;
+  const rows = pets.map((e, i) => {
+    const hp = Math.round(e.hp);
+    const family = e.kind === 'cub'
+      ? (e.parent ? `親：${e.parent.wild ? '野生' : e.parent.name}` : '親：いない')
+      : (() => { const kids = enemies.list.filter((c) => c.parent === e); return kids.length ? `子：${kids.map((c) => c.wild ? '野生' : c.name).join('・')}` : ''; })();
+    const resting = e.mode === 'rest';
+    const canRest = pen && cap - used >= e.K.slots;
+    return `<div class="pet-row">
+      <div class="pet-face ${e.kind}">🐻‍❄️</div>
+      <div class="pet-info"><b>${e.name}</b> <span class="pet-tag ${e.kind}">${e.K.label}</span> <small>${family}</small>
+        <div class="pet-hp"><div style="width:${(hp / e.K.hp) * 100}%"></div></div>
+        <small>HP ${hp} / ${e.K.hp}・${resting ? (e.state === 'sleep' ? '牧場で寝ている' : '牧場で休憩中') : 'ついてきている'}</small></div>
+      ${resting
+        ? `<button class="btn btn-small" data-pet="${i}" data-act="follow">連れて行く</button>`
+        : `<button class="btn btn-small" data-pet="${i}" data-act="rest" ${canRest ? '' : 'disabled'}>休ませる</button>`}
+    </div>`;
+  }).join('');
+  el.querySelector('.pet-base').innerHTML = baseLine;
+  el.querySelector('.pet-list').innerHTML = rows || '<p class="pet-empty">まだペットがいない。雪原のシロクマを仲間にしよう</p>';
+}
+
 /** 木材などの説明カード（耐久力・特性・弱点） */
 let itemCardTimer;
 function showItemCard(item) {
@@ -695,10 +820,7 @@ function applyHits(hits) {
   for (const h of hits) {
     total += h.damage;
     popups.add(h.pos, String(h.damage), h.damage > stats.atk * 1.6 ? 'crit' : '');
-    if (h.killed) {
-      toast(`${h.name} をたおした！`);
-      gainExp(h.exp);
-    }
+    if (h.killed) gainExp(h.exp); // 知らせは動物の側から出る
   }
   const held = inventory.held;
   const rate = (held?.passive?.id === 'lifesteal' ? held.passive.rate : 0) + (buff?.lifesteal ?? 0);
@@ -714,7 +836,6 @@ function applyHits(hits) {
 function onBleed(h) {
   popups.add(h.pos, String(h.damage), 'bleed');
   if (h.killed) {
-    toast(`${h.name} は血を流して倒れた…`);
     gainExp(h.exp);
   }
 }
@@ -1011,6 +1132,25 @@ $('btn-use').addEventListener('pointerdown', (e) => { e.preventDefault(); useDoo
 $('btn-rotate').addEventListener('pointerdown', (e) => { e.preventDefault(); rotateBuild(); });
 $('btn-wood').addEventListener('pointerdown', (e) => { e.preventDefault(); cycleWood(); });
 $('btn-enclose').addEventListener('pointerdown', (e) => { e.preventDefault(); toggleEnclose(); });
+$('btn-pets').addEventListener('click', togglePetPanel);
+document.querySelector('[data-close-pets]').addEventListener('click', () => $('pet-panel').classList.add('hidden'));
+$('pet-panel').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-act]');
+  if (!b) return;
+  const pet = enemies.pets[Number(b.dataset.pet)];
+  if (!pet) return;
+  if (b.dataset.act === 'rest') {
+    const pen = basePen();
+    if (!pen) { toast('牧場がない'); return; }
+    if (penCapacity(pen) - enemies.usedSlots() < pet.K.slots) { toast('牧場がせまくて入れない…　柵を広げよう'); return; }
+    enemies.rest(pet, pen);
+    toast(`${pet.name}を牧場で休ませた`);
+  } else {
+    enemies.follow(pet, player.position);
+    toast(`${pet.name}を連れて行く`);
+  }
+  renderPetPanel();
+});
 $('btn-back').addEventListener('click', backToMenu);
 $('minimap').addEventListener('click', () => { minimap.expanded = !minimap.expanded; });
 
@@ -1100,7 +1240,18 @@ function loop() {
   // 無敵時間中は点滅
   character.object.visible = !(invuln > 0 && !fainted && Math.floor(invuln * 12) % 2 === 0);
 
-  enemies.update(dt, { playerPos: player.position, playerActive: active, playerSwimming: player.swimming, onHitPlayer: hitPlayer, onBleed });
+  enemies.update(dt, {
+    playerPos: player.position,
+    playerFacing: player.facing,
+    playerActive: active,
+    playerSwimming: player.swimming,
+    onHitPlayer: hitPlayer,
+    onBleed,
+    onEvent: (msg) => toast(msg, 3000),
+    building,
+    pen: basePen(),
+    forceSpawn: DEMO,
+  });
   world.update(dt, player.position, camera.position);
   building.update(dt);
   updateBuildHud(dt);
@@ -1115,6 +1266,7 @@ function loop() {
   enemies.updateLabels(camera);
   popups.update(dt, camera);
   if (mode === 'ingame') updateSkillHud();
+  if (mode === 'ingame') updatePetPanel(realDt);
 
   if (mode === 'ingame') {
     minimap.draw(player.position, player.facing, cam.yaw, enemies.alive());

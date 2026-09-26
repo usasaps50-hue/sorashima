@@ -53,7 +53,7 @@
         <button id="btn-fullscreen" class="btn hidden">全画面で遊ぶ</button>
       </nav>
       <p id="rotate-tip" class="rotate-tip hidden">📱 スマホは横向きがおすすめです</p>
-      <p class="menu-version">v0.9 — 囲いと壁（デモ）</p>
+      <p class="menu-version">v0.10 — シロクマと牧場（デモ）</p>
     </div>
 
     <div id="settings-panel" class="popup hidden">
@@ -75,6 +75,12 @@
   <!-- ゲーム中の HUD -->
   <div id="ingame" class="hidden">
     <button id="btn-back" class="btn btn-small">≡ メニュー</button>
+    <button id="btn-pets" class="btn btn-small pets-btn" title="P キー">🐾 0</button>
+    <div id="pet-panel" class="pet-panel hidden">
+      <div class="pet-head"><b>ペットと牧場</b><button class="pet-close" data-close-pets>×</button></div>
+      <div class="pet-base"></div>
+      <div class="pet-list"></div>
+    </div>
 
     <div class="status">
       <div class="status-top">
@@ -98,15 +104,16 @@
         <dt>スペース</dt><dd>ジャンプ</dd>
         <dt>Shift</dt><dd>走る</dd>
         <dt>クリック / F</dt><dd>攻撃・アイテムを使う</dd>
-        <dt>1〜8</dt><dd>持ち物を切り替え</dd>
+        <dt>1〜0</dt><dd>持ち物を切り替え</dd>
         <dt>Q / E / R</dt><dd>魔剣の技</dd>
         <dt>ドラッグ</dt><dd>カメラを回す</dd>
         <dt>ホイール</dt><dd>ズーム</dd>
         <dt>M</dt><dd>マップを拡大</dd>
-        <dt>G</dt><dd>扉を開け閉め</dd>
+        <dt>G</dt><dd>門を開け閉め</dd>
+        <dt>P</dt><dd>ペットと牧場</dd>
         <dt>R / T</dt><dd>建てる向き / 木材（柵・壁・門を持った時）</dd>
         <dt>V</dt><dd>四角く囲うモード（柵・壁）</dd>
-        <dt>B</dt><dd>祭壇に戻る</dd>
+        <dt>B</dt><dd>拠点（祭壇）に戻る</dd>
         <dt>Esc</dt><dd>メニューへ</dd>
       </dl>
     </div>
