@@ -61,15 +61,16 @@ export function makeBatch(geometry, material, max) {
   let n = 0;
   return {
     mesh,
+    /** 1 つ積む。あとで動かせるように、番号を返す（いっぱいなら -1） */
     add(x, y, z, sx = 1, sy = sx, sz = sx, rx = 0, ry = 0, rz = 0, color = null, order = 'XYZ') {
-      if (n >= max) return;
+      if (n >= max) return -1;
       dummy.position.set(x, y, z);
       dummy.rotation.set(rx, ry, rz, order);
       dummy.scale.set(sx, sy, sz);
       dummy.updateMatrix();
       mesh.setMatrixAt(n, dummy.matrix);
       if (color) mesh.setColorAt(n, color);
-      n++;
+      return n++;
     },
     /** 行列を直接積む */
     addMatrix(m) {

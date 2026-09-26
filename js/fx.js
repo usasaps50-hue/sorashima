@@ -12,6 +12,7 @@ export function createFx(scene, ground) {
   const dropGeo = new THREE.IcosahedronGeometry(0.16, 0);
   const dropMat = new THREE.MeshStandardMaterial({ color: BLOOD, emissive: 0x500008, emissiveIntensity: 0.6, roughness: 0.3, transparent: true });
   const ringGeo = new THREE.RingGeometry(0.85, 1, 48);
+  const chipGeo = new THREE.BoxGeometry(0.28, 0.1, 0.18);
   const spikeGeo = new THREE.ConeGeometry(0.45, 1, 5).translate(0, 0.5, 0);
   const spikeMat = new THREE.MeshStandardMaterial({ color: 0xd0203a, emissive: 0x800818, emissiveIntensity: 0.9, flatShading: true, roughness: 0.2, metalness: 0.2, transparent: true });
 
@@ -41,6 +42,27 @@ export function createFx(scene, ground) {
           const floor = ground(m.position.x, m.position.z) + 0.1;
           if (m.position.y < floor) { m.position.y = floor; vel.set(0, 0, 0); m.scale.y = 0.25; }
           m.material.opacity = 1;
+        });
+      }
+    },
+
+    /** 木くず（木を叩いた時） */
+    chips(pos, count = 8, color = 0xb58a5e) {
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.9, flatShading: true });
+      for (let i = 0; i < count; i++) {
+        const m = new THREE.Mesh(chipGeo, mat);
+        m.position.copy(pos);
+        const a = Math.random() * Math.PI * 2;
+        const sp = 3 + Math.random() * 4;
+        const vel = new THREE.Vector3(Math.cos(a) * sp, 3 + Math.random() * 5, Math.sin(a) * sp);
+        const spin = new THREE.Vector3(Math.random() * 10, Math.random() * 10, Math.random() * 10);
+        add(m, 0.8, (it, dt) => {
+          vel.y -= 25 * dt;
+          m.position.addScaledVector(vel, dt);
+          m.rotation.x += spin.x * dt;
+          m.rotation.y += spin.y * dt;
+          const floor = ground(m.position.x, m.position.z) + 0.08;
+          if (m.position.y < floor) { m.position.y = floor; vel.set(0, 0, 0); spin.set(0, 0, 0); }
         });
       }
     },

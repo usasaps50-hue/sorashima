@@ -433,6 +433,39 @@ html, body {
   100% { opacity: 0; }
 }
 .popup-text.bleed { color: #ff5566; font-size: 16px; }
+.popup-text.chop { color: #f0d8a8; font-size: 15px; }
+.popup-text.loot { color: #a8e8a0; font-size: 16px; }
+
+/* 木材などの説明カード */
+.item-card {
+  position: absolute;
+  right: 16px;
+  bottom: 110px;
+  width: 280px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(28, 26, 58, .92);
+  border: 2px solid rgba(244, 194, 91, .45);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.card-head { display: flex; gap: 10px; align-items: center; }
+.card-head svg { width: 40px; height: 40px; flex: none; }
+.card-head b { display: block; font-size: 15px; }
+.card-head small { color: var(--muted); }
+.card-row { display: flex; gap: 8px; align-items: flex-start; }
+.card-row > span { flex: none; width: 42px; font-weight: 800; color: var(--muted); }
+.card-row p { margin: 0; line-height: 1.5; }
+.card-bar { flex: 1; height: 8px; margin-top: 4px; border-radius: 4px; background: rgba(0, 0, 0, .35); overflow: hidden; }
+.card-bar div { height: 100%; background: linear-gradient(90deg, #c8a870, #f4c25b); }
+.card-row.trait b { color: var(--gold); }
+.card-row.good p { color: #a8e8b0; }
+.card-row.bad p { color: #ffb0a0; }
+.card-note { font-size: 10.5px; color: var(--muted); opacity: .8; }
 
 .held-name {
   padding: 4px 14px;
@@ -510,6 +543,7 @@ html, body {
 /* タッチ端末：ジョイスティックとジャンプボタンを表示 */
 @media (pointer: coarse) {
   .help { display: none; }
+  .item-card { right: 12px; bottom: 250px; }
   .joystick {
     display: block;
     pointer-events: auto;
@@ -643,6 +677,7 @@ html, body {
 
 /* スマホを横向きにした時：アイテム欄は下の中央、ボタンは右側にまとめる */
 @media (pointer: coarse) and (orientation: landscape) {
+  .item-card { right: auto; left: calc(12px + env(safe-area-inset-left)); bottom: auto; top: 64px; width: 250px; padding: 8px 10px; gap: 5px; }
   .status { top: 10px; left: calc(120px + env(safe-area-inset-left)); width: 170px; padding: 6px 10px; }
   .status-top { margin-bottom: 3px; font-size: 11px; }
   .lv b { font-size: 14px; }

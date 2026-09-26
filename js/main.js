@@ -7,7 +7,7 @@ import { createMinimap } from './minimap.js';
 import { createEnemies } from './enemies.js';
 import { createPopups } from './popups.js';
 import { MOVESETS, COMBO_WINDOW } from './attacks.js';
-import { ITEMS, SLOT_COUNT, createInventory } from './items.js';
+import { ITEMS, SLOT_COUNT, HAZARDS, createInventory } from './items.js';
 import { SKILLS } from './skills.js';
 import { createFx } from './fx.js';
 
@@ -27,6 +27,7 @@ const TIPS = [
   'ヒント：数字キー 1〜8 で持ち物を切り替え。空のマスを選ぶと素手になります',
   'ヒント：魔剣サングレアを持つと、Q・E・R で 3 つの技が使えます',
   'ヒント：B キーで星の祭壇に戻れます',
+  'ヒント：木を攻撃すると切り倒せます。地方ごとに違う木材が手に入ります',
   'ヒント：Shift を押しながら移動すると走れます（スマホはスティックを端まで倒す）',
 ];
 
@@ -305,6 +306,7 @@ function itemTooltip(item) {
   if (item.passive) text += `\n特性【${item.passive.name}】${item.passive.desc}`;
   for (const id of item.skills ?? []) text += `\n技【${SKILLS[id].name}】（${SKILLS[id].key}）${SKILLS[id].desc}`;
   if (item.power) text += `\n攻撃力 ×${item.power}`;
+  if (item.category === 'wood') text += `\n耐久力 ${item.durability}　特性【${item.trait.name}】${item.trait.desc}`;
   return text;
 }
 
@@ -317,6 +319,7 @@ function selectSlot(i) {
   renderHotbar();
   const held = inventory.held;
   const el = $('held-name');
+  showItemCard(held);
   el.textContent = held ? (held.skills ? `${held.name}　${held.skills.map((id) => `${SKILLS[id].key}「${SKILLS[id].name}」`).join(' ')}` : held.name) : '素手';
   el.classList.remove('hidden');
   clearTimeout(heldNameTimer);
@@ -447,6 +450,7 @@ function resolveHit(atk) {
     if (held?.rarity === 'blood') for (const h of hits) fx.burst(h.pos, 8, 5);
   }
   applyHits(hits);
+  chopTrees(atk);
   // 鮮血解放の間は、振るたびに血の斬撃波が飛ぶ
   if (buff?.waves && held?.rarity === 'blood') launchWave();
 }
@@ -467,6 +471,56 @@ function launchWave() {
       applyHits(hits);
     },
   });
+}
+
+// ---------- 木を切る ----------
+const seenWoods = new Set(); // これまでに手に入れた木材（初めての時だけ説明を出す）
+
+/** 攻撃が当たる範囲の木を切る。倒れたら木材が手に入る */
+function chopTrees(atk) {
+  const results = world.chopTrees(player.position, player.facing, {
+    range: atk.range,
+    arc: atk.arc,
+    damage: stats.atk * atk.power * powerMult(),
+  });
+  for (const r of results) {
+    fx.chips(r.pos, r.felled ? 14 : 6);
+    popups.add(r.pos.clone().setY(r.pos.y + 2), String(r.damage), 'chop');
+    if (!r.felled) continue;
+    const wood = ITEMS[r.woodId];
+    const left = inventory.add(r.woodId, r.amount);
+    const got = r.amount - left;
+    if (got > 0) popups.add(headPos(), `+${got} ${wood.name}`, 'loot');
+    if (left > 0) toast('持ち物がいっぱいで、木材を持ちきれない…');
+    renderHotbar();
+    if (got > 0 && !seenWoods.has(r.woodId)) {
+      seenWoods.add(r.woodId);
+      toast(`${wood.name}を手に入れた！　特性【${wood.trait.name}】`, 3200);
+    }
+  }
+  if (results.length && !hitStop) shake = Math.max(shake, 0.08);
+}
+
+/** 木材などの説明カード（耐久力・特性・弱点） */
+let itemCardTimer;
+function showItemCard(item) {
+  const el = $('item-card');
+  if (!item || item.category !== 'wood') {
+    el.classList.add('hidden');
+    return;
+  }
+  const weak = Object.keys(HAZARDS).filter((k) => !item.resist[k]);
+  const strong = Object.keys(HAZARDS).filter((k) => item.resist[k]);
+  el.innerHTML = `
+    <div class="card-head">${item.icon}<div><b>${item.name}</b><small>${item.desc}</small></div></div>
+    <div class="card-row"><span>耐久力</span><div class="card-bar"><div style="width:${Math.min(100, item.durability / 2)}%"></div></div><b>${item.durability}</b></div>
+    <div class="card-row trait"><span>特性</span><p><b>${item.trait.name}</b>：${item.trait.desc}</p></div>
+    ${strong.length ? `<div class="card-row good"><span>強い</span><p>${strong.map((k) => `${HAZARDS[k].name}（${HAZARDS[k].where}でも平気）`).join('、')}</p></div>` : ''}
+    ${weak.length ? `<div class="card-row bad"><span>弱点</span><p>${weak.map((k) => `${HAZARDS[k].name}：${HAZARDS[k].effect}`).join('<br>')}</p></div>` : ''}
+    <div class="card-note">※ 拠点を建てた場所の環境で、特性と弱点が効くようになります</div>`;
+  el.classList.remove('hidden');
+  clearTimeout(itemCardTimer);
+  itemCardTimer = setTimeout(() => el.classList.add('hidden'), 6000);
 }
 
 /** 当たった結果をまとめて処理：ダメージ表示・経験値・吸血 */

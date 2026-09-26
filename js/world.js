@@ -8,6 +8,7 @@ import { buildVillage } from './village.js';
 import { buildBridges } from './bridges.js';
 import { makeNature } from './nature.js';
 import { std, shadow, makePlacer } from './props.js';
+import { ITEMS, WOODS } from './items.js';
 
 export { ISLANDS, ALL_PLACES, SANCTUARIES, PLACES };
 
@@ -400,6 +401,135 @@ function buildColliderGrid(colliders) {
   };
 }
 
+// ---------- 切り倒せる木 ----------
+
+const REGROW_TIME = 120; // 切り倒した木が生えてくるまでの時間（秒）
+
+/**
+ * 木に耐久力を持たせ、攻撃で揺らし、倒し、しばらくしたら生やし直す。
+ * 木の見た目はまとめて描いている（InstancedMesh）ので、部品ごとの行列を書きかえて動かす。
+ */
+function makeChoppableTrees(trees) {
+  const CELL = 16;
+  const cells = new Map();
+  for (const t of trees) {
+    const wood = ITEMS[WOODS[t.region.id]];
+    t.woodId = WOODS[t.region.id];
+    // 丈夫な木材の木ほど、切るのに手間がかかる
+    t.maxHp = Math.round(wood.durability * 0.35);
+    t.hp = t.maxHp;
+    t.state = 'stand';
+    t.t = 0;
+    const k = Math.floor(t.x / CELL) * 100000 + Math.floor(t.z / CELL);
+    if (!cells.has(k)) cells.set(k, []);
+    cells.get(k).push(t);
+  }
+  const active = new Set(); // 揺れている・倒れている・生えている途中の木
+  const m = new THREE.Matrix4(), rot = new THREE.Matrix4(), scl = new THREE.Matrix4();
+  const toBase = new THREE.Matrix4(), fromBase = new THREE.Matrix4();
+  const axis = new THREE.Vector3();
+  const hidden = new THREE.Matrix4().makeScale(0, 0, 0);
+
+  /** 元の姿勢を覚えておく（最初に触った時だけ） */
+  function remember(t) {
+    if (t.orig) return;
+    t.orig = t.parts.map((p) => {
+      const o = new THREE.Matrix4();
+      p.mesh.getMatrixAt(p.index, o);
+      return o;
+    });
+  }
+
+  /** 根元を支点に、傾き angle・大きさ scale で部品を置き直す */
+  function pose(t, angle, scale) {
+    fromBase.makeTranslation(t.x, t.y, t.z);
+    toBase.makeTranslation(-t.x, -t.y, -t.z);
+    rot.makeRotationAxis(axis.set(t.axisX, 0, t.axisZ), angle);
+    scl.makeScale(scale, scale, scale);
+    t.parts.forEach((p, i) => {
+      m.copy(fromBase).multiply(rot).multiply(scl).multiply(toBase).multiply(t.orig[i]);
+      p.mesh.setMatrixAt(p.index, scale <= 0 ? hidden : m);
+      p.mesh.instanceMatrix.needsUpdate = true;
+    });
+  }
+
+  return {
+    /**
+     * origin から facing の向きの、range（m）以内・角度 arc 以内の木を damage だけ削る。
+     * @returns {{ tree, pos: THREE.Vector3, damage: number, felled: boolean, woodId: string, amount: number }[]}
+     */
+    chop(origin, facing, { range, arc, damage }) {
+      const hits = [];
+      const fx = Math.sin(facing), fz = Math.cos(facing);
+      const cx = Math.floor(origin.x / CELL), cz = Math.floor(origin.z / CELL);
+      for (let ix = cx - 1; ix <= cx + 1; ix++) {
+        for (let iz = cz - 1; iz <= cz + 1; iz++) {
+          for (const t of cells.get(ix * 100000 + iz) ?? []) {
+            if (t.state === 'gone' || t.state === 'fall' || t.state === 'grow') continue;
+            const dx = t.x - origin.x, dz = t.z - origin.z;
+            const d = Math.hypot(dx, dz);
+            if (d > range + 0.8 || Math.abs(t.y - origin.y) > 4) continue;
+            if (d > 1.5 && Math.acos(THREE.MathUtils.clamp((dx * fx + dz * fz) / d, -1, 1)) > arc / 2) continue;
+            remember(t);
+            const dmg = Math.max(1, Math.round(damage * (0.85 + Math.random() * 0.3)));
+            t.hp -= dmg;
+            // 叩いた向きと直角の軸で揺らす／倒す（向こう側へ倒れる）
+            const len = Math.max(d, 0.001);
+            t.axisX = dz / len;
+            t.axisZ = -dx / len;
+            const felled = t.hp <= 0;
+            t.state = felled ? 'fall' : 'shake';
+            t.t = 0;
+            active.add(t);
+            hits.push({
+              tree: t,
+              pos: new THREE.Vector3(t.x, t.y + 2, t.z),
+              damage: dmg,
+              felled,
+              woodId: t.woodId,
+              amount: felled ? 2 + Math.floor(Math.random() * 3) : 0,
+            });
+          }
+        }
+      }
+      return hits;
+    },
+
+    update(dt) {
+      for (const t of active) {
+        t.t += dt;
+        if (t.state === 'shake') {
+          const k = t.t / 0.3;
+          pose(t, Math.sin(t.t * 45) * 0.06 * Math.max(0, 1 - k), 1);
+          if (k >= 1) { pose(t, 0, 1); t.state = 'stand'; active.delete(t); }
+        } else if (t.state === 'fall') {
+          const k = Math.min(t.t / 1.1, 1);
+          pose(t, (Math.PI / 2) * k * k, 1 - Math.max(0, k - 0.8) * 5);
+          if (k >= 1) {
+            pose(t, 0, 0);
+            t.state = 'gone';
+            t.t = 0;
+            // 倒れた木は通り抜けられる（当たり判定を空にする）
+            t.savedBox = t.collider.box.clone();
+            t.collider.box.makeEmpty();
+          }
+        } else if (t.state === 'gone') {
+          if (t.t >= REGROW_TIME) { t.state = 'grow'; t.t = 0; }
+        } else if (t.state === 'grow') {
+          const k = Math.min(t.t / 1.5, 1);
+          pose(t, 0, 1 - Math.pow(1 - k, 3));
+          if (k >= 1) {
+            t.collider.box.copy(t.savedBox);
+            t.hp = t.maxHp;
+            t.state = 'stand';
+            active.delete(t);
+          }
+        }
+      }
+    },
+  };
+}
+
 // ---------- 組み立て ----------
 
 /** options.lite: スマホ向けの軽い設定（影を小さく、草花を少なく、遠くを早めに霞ませる） */
@@ -447,6 +577,7 @@ export function buildWorld(scene, renderer, options = {}) {
 
   const colliders = [];
   const updaters = [];
+  const trees = []; // 切り倒せる木
 
   // 始まりの島の建物など
   const altar = makeAltar(colliders);
@@ -466,7 +597,9 @@ export function buildWorld(scene, renderer, options = {}) {
       updaters.push(d.update);
     }
     const weightAt = (x, z) => continent.weightOf(i, x, z);
-    scene.add(makeNature(island, colliders, ground, terrain.slopeAt, seeded(island.cx * 3 + island.cz * 11 + 1), weightAt, lite ? 0.35 : 1));
+    const nature = makeNature(island, colliders, ground, terrain.slopeAt, seeded(island.cx * 3 + island.cz * 11 + 1), weightAt, lite ? 0.35 : 1);
+    scene.add(nature.group);
+    trees.push(...nature.trees);
   });
 
   // 川の橋
@@ -474,6 +607,7 @@ export function buildWorld(scene, renderer, options = {}) {
   scene.add(bridges.group);
 
   const mapImage = buildMapImage(terrain.colorAt, ground);
+  const forest = makeChoppableTrees(trees);
   const collidersNear = buildColliderGrid(colliders);
   const spawnPoint = new THREE.Vector3(PLACES.altar.x, PLACES.altar.h + 0.8, PLACES.altar.z);
   let t = 0;
@@ -494,6 +628,8 @@ export function buildWorld(scene, renderer, options = {}) {
     islandAt,
     /** その地点でいちばん強い地方（海の上でも返す） */
     regionAt,
+    /** 攻撃で木を切る（chopTrees の説明を参照） */
+    chopTrees: forest.chop,
     update(dt, focus, cameraPos) {
       t += dt;
       if (cameraPos) sky.position.copy(cameraPos);
@@ -505,6 +641,7 @@ export function buildWorld(scene, renderer, options = {}) {
       village.update(t);
       cave.update(dt, focus);
       for (const u of updaters) u(dt, t, focus);
+      forest.update(dt);
       ruins.crystal.rotation.y += dt * 0.8;
       ruins.crystal.position.y = ruins.crystalBaseY + Math.sin(t * 1.5) * 0.4;
       if (focus) {
